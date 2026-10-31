@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  /* PLATIK — identidad oficial */
+  --color-petroleo: #0b3d3b;
+  --color-petroleo-800: #0e4a47;
+  --color-petroleo-600: #156b66;
+  --color-petroleo-50: #eaf3f2;
+
+  --color-menta: #4fd1a3;
+  --color-menta-600: #35b183;
+  --color-menta-700: #2a9269;
+  --color-menta-100: #e3f7ef;
+  --color-menta-50: #f0fbf6;
+
+  --color-marfil: #f8faf7;
+
+  --color-coral: #ff7e8b;
+  --color-coral-600: #f25565;
+  --color-coral-100: #ffe5e8;
+  --color-coral-50: #fff2f4;
+
+  --color-lavanda: #a78bfa;
+  --color-lavanda-600: #8b66f6;
+  --color-lavanda-100: #eee9fe;
+  --color-lavanda-50: #f6f2fe;
+
+  --color-tinta: #12312f;
+  --color-tinta-suave: #4c6a67;
+
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+}
+
+body {
+  background: var(--color-marfil);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes platik-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes platik-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes platik-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.anim-fade-up {
+  animation: platik-fade-up 0.45s ease both;
+}
+
+.anim-pop {
+  animation: platik-pop 0.25s ease both;
+}
+
+.anim-float {
+  animation: platik-float 5s ease-in-out infinite;
+}
