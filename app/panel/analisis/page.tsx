@@ -24,8 +24,9 @@ export default function AnalisisPage() {
   const moneda = data.profile.moneda;
   const txs = data.transactions;
 
-  const ultimos30 = txInRange(txs, haceDiasISO(30));
-  const previos30 = txInRange(txs, haceDiasISO(60), haceDiasISO(31));
+  // Dos ventanas contiguas de 30 días: [hoy-29, hoy] y [hoy-59, hoy-30].
+  const ultimos30 = txInRange(txs, haceDiasISO(29));
+  const previos30 = txInRange(txs, haceDiasISO(59), haceDiasISO(30));
 
   const ingresos = totalByType(ultimos30, "ingreso");
   const costos = totalByType(ultimos30, "costo");
@@ -39,13 +40,33 @@ export default function AnalisisPage() {
     ingresosPrev > 0 ? ((ingresos - ingresosPrev) / ingresosPrev) * 100 : 0;
 
   const serie = serieMensual(txs, 6);
-  const topGastos = totalesPorCategoria(ultimos30, ["gasto", "costo"]).slice(0, 6);
+  const topGastos = totalesPorCategoria(ultimos30, ["gasto", "costo"]);
   const mayorGasto = topGastos[0];
   const topIngresos = totalesPorCategoria(ultimos30, ["ingreso"])[0];
 
+  // El gráfico muestra las 5 categorías mayores y agrupa el resto en
+  // "Otros" para que la distribución sume 100% como la lista.
+  const pieGastos =
+    topGastos.length <= 6
+      ? topGastos
+      : [
+          ...topGastos.slice(0, 5),
+          {
+            categoria: "Otros",
+            total: topGastos.slice(5).reduce((a, c) => a + c.total, 0),
+            porcentaje: topGastos
+              .slice(5)
+              .reduce((a, c) => a + c.porcentaje, 0),
+          },
+        ];
+
   // Explicaciones deterministas generadas a partir de los números.
   const explicaciones: string[] = [];
-  if (neta >= 0) {
+  if (ultimos30.length === 0) {
+    explicaciones.push(
+      "No hay movimientos en los últimos 30 días. Registra transacciones en la pestaña Transacciones para ver aquí qué pasa con tu dinero.",
+    );
+  } else if (neta >= 0) {
     explicaciones.push(
       `En los últimos 30 días tu negocio generó ${formatMoney(neta, moneda)} de ganancia estimada: de cada Bs 100 que entraron, te quedaron aproximadamente Bs ${Math.round(margen)}.`,
     );
@@ -142,10 +163,10 @@ export default function AnalisisPage() {
             title="Principales egresos por categoría"
             subtitle="Costos + gastos, últimos 30 días"
           />
-          {topGastos.length > 0 ? (
+          {pieGastos.length > 0 ? (
             <>
               <DistribucionChart
-                items={topGastos.map((c) => ({
+                items={pieGastos.map((c) => ({
                   nombre: c.categoria,
                   valor: c.total,
                 }))}
