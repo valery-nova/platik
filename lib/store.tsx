@@ -19,7 +19,7 @@ import { buildDemoData } from "./demo-data";
 const STORAGE_KEY = "platik:data:v1";
 
 type Action =
-  | { type: "hydrate"; data: PlatikData }
+  | { type: "hydrate"; data: PlatikData; customized: boolean }
   | { type: "tx/add"; tx: Transaction }
   | { type: "tx/update"; tx: Transaction }
   | { type: "tx/delete"; id: string }
@@ -31,48 +31,62 @@ type Action =
   | { type: "distribution/update"; distribution: Distribution }
   | { type: "reset" };
 
-function reducer(state: PlatikData, action: Action): PlatikData {
+interface State {
+  data: PlatikData;
+  /** true si el usuario ya modificó los datos de demostración. */
+  customized: boolean;
+}
+
+function withData(state: State, data: Partial<PlatikData>): State {
+  return { data: { ...state.data, ...data }, customized: true };
+}
+
+function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "hydrate":
-      return action.data;
+      return { data: action.data, customized: action.customized };
     case "tx/add":
-      return { ...state, transactions: [action.tx, ...state.transactions] };
+      return withData(state, {
+        transactions: [action.tx, ...state.data.transactions],
+      });
     case "tx/update":
-      return {
-        ...state,
-        transactions: state.transactions.map((t) =>
+      return withData(state, {
+        transactions: state.data.transactions.map((t) =>
           t.id === action.tx.id ? action.tx : t,
         ),
-      };
+      });
     case "tx/delete":
-      return {
-        ...state,
-        transactions: state.transactions.filter((t) => t.id !== action.id),
-      };
+      return withData(state, {
+        transactions: state.data.transactions.filter(
+          (t) => t.id !== action.id,
+        ),
+      });
     case "goal/add":
-      return { ...state, goals: [...state.goals, action.goal] };
+      return withData(state, { goals: [...state.data.goals, action.goal] });
     case "goal/update":
-      return {
-        ...state,
-        goals: state.goals.map((g) => (g.id === action.goal.id ? action.goal : g)),
-      };
+      return withData(state, {
+        goals: state.data.goals.map((g) =>
+          g.id === action.goal.id ? action.goal : g,
+        ),
+      });
     case "goal/delete":
-      return { ...state, goals: state.goals.filter((g) => g.id !== action.id) };
+      return withData(state, {
+        goals: state.data.goals.filter((g) => g.id !== action.id),
+      });
     case "goal/aporte":
-      return {
-        ...state,
-        goals: state.goals.map((g) =>
+      return withData(state, {
+        goals: state.data.goals.map((g) =>
           g.id === action.id
             ? { ...g, ahorroAcumulado: g.ahorroAcumulado + action.monto }
             : g,
         ),
-      };
+      });
     case "profile/update":
-      return { ...state, profile: action.profile };
+      return withData(state, { profile: action.profile });
     case "distribution/update":
-      return { ...state, distribution: action.distribution };
+      return withData(state, { distribution: action.distribution });
     case "reset":
-      return buildDemoData();
+      return { data: buildDemoData(), customized: false };
     default:
       return state;
   }
@@ -103,64 +117,115 @@ const EMPTY_DATA: PlatikData = {
   distribution: { operacion: 55, reinversion: 25, ahorro: 20 },
 };
 
+const INITIAL_STATE: State = { data: EMPTY_DATA, customized: false };
+
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+/** Valida que lo guardado tenga la forma completa de PlatikData. */
+function isPlatikData(x: unknown): x is PlatikData {
+  if (!x || typeof x !== "object") return false;
+  const d = x as Partial<PlatikData>;
+  return (
+    !!d.profile &&
+    typeof d.profile === "object" &&
+    typeof d.profile.moneda === "string" &&
+    Array.isArray(d.transactions) &&
+    Array.isArray(d.goals) &&
+    !!d.distribution &&
+    typeof d.distribution === "object"
+  );
+}
+
+/** Lee el almacenamiento; devuelve null si falta o es inválido. */
+function readStored(): State | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    // Formato actual: { data, customized }
+    const wrapped = parsed as { data?: unknown; customized?: unknown };
+    if (isPlatikData(wrapped?.data)) {
+      return { data: wrapped.data, customized: wrapped.customized === true };
+    }
+    // Legado v1 (sin envoltura): se trata como datos propios del usuario
+    if (isPlatikData(parsed)) {
+      return { data: parsed, customized: true };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStored(state: State) {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ data: state.data, customized: state.customized }),
+    );
+  } catch {
+    // Sin espacio / modo privado: la sesión sigue funcionando en memoria.
+  }
+}
+
 export function PlatikProvider({ children }: { children: React.ReactNode }) {
-  const [data, dispatch] = useReducer(reducer, EMPTY_DATA);
+  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const [hydrated, setHydrated] = useReducer(() => true, false);
 
   useEffect(() => {
-    let next = buildDemoData();
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) next = JSON.parse(raw);
-    } catch {
-      // Datos corruptos: se mantiene la demostración.
-    }
-    dispatch({ type: "hydrate", data: next });
+    const stored = readStored();
+    // Si el usuario nunca personalizó, regeneramos la demo con fechas
+    // recientes; si la tocó, respetamos sus datos tal como quedaron.
+    const next = stored?.customized
+      ? stored
+      : { data: buildDemoData(), customized: false };
+    dispatch({ type: "hydrate", data: next.data, customized: next.customized });
     setHydrated();
+
+    // Sincroniza con otras pestañas abiertas.
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY) return;
+      const s = readStored();
+      if (s) {
+        dispatch({ type: "hydrate", data: s.data, customized: s.customized });
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      // Sin espacio / modo privado: la sesión sigue funcionando en memoria.
-    }
-  }, [data, hydrated]);
+    if (hydrated) writeStored(state);
+  }, [state, hydrated]);
 
   const store = useMemo<Store>(
     () => ({
-      data,
+      data: state.data,
       hydrated,
-      addTransaction: (tx) => dispatch({ type: "tx/add", tx: { ...tx, id: newId() } }),
+      addTransaction: (tx) =>
+        dispatch({ type: "tx/add", tx: { ...tx, id: newId() } }),
       updateTransaction: (tx) => dispatch({ type: "tx/update", tx }),
       deleteTransaction: (id) => dispatch({ type: "tx/delete", id }),
-      addGoal: (goal) => dispatch({ type: "goal/add", goal: { ...goal, id: newId() } }),
+      addGoal: (goal) =>
+        dispatch({ type: "goal/add", goal: { ...goal, id: newId() } }),
       updateGoal: (goal) => dispatch({ type: "goal/update", goal }),
       deleteGoal: (id) => dispatch({ type: "goal/delete", id }),
       addAporte: (id, monto) => dispatch({ type: "goal/aporte", id, monto }),
       updateProfile: (profile) => dispatch({ type: "profile/update", profile }),
       updateDistribution: (distribution) =>
         dispatch({ type: "distribution/update", distribution }),
-      resetDemo: () => {
-        try {
-          localStorage.removeItem(STORAGE_KEY);
-        } catch {
-          /* sin persistencia */
-        }
-        dispatch({ type: "reset" });
-      },
+      resetDemo: () => dispatch({ type: "reset" }),
     }),
-    [data, hydrated],
+    [state.data, hydrated],
   );
 
-  return <PlatikContext.Provider value={store}>{children}</PlatikContext.Provider>;
+  return (
+    <PlatikContext.Provider value={store}>{children}</PlatikContext.Provider>
+  );
 }
 
 export function usePlatik(): Store {
