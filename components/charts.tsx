@@ -65,8 +65,8 @@ export function IngresosEgresosChart({
 }) {
   const data = serie.map((s) => ({
     mes: nombreMes(s.mes),
-    Ingresos: Math.round(s.ingresos),
-    Egresos: Math.round(s.egresos),
+    Ingresos: s.ingresos,
+    Egresos: s.egresos,
   }));
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -102,8 +102,8 @@ export function EvolucionChart({
 }) {
   const data = serie.map((s) => ({
     mes: nombreMes(s.mes),
-    Ingresos: Math.round(s.ingresos),
-    "Ganancia neta": Math.round(s.ganancia),
+    Ingresos: s.ingresos,
+    "Ganancia neta": s.ganancia,
   }));
   return (
     <ResponsiveContainer width="100%" height={280}>
