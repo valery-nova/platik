@@ -79,7 +79,7 @@ export default function DashboardPage() {
   const { transactions, goals, profile, distribution } = data;
   const moneda = profile.moneda;
 
-  const ultimos30 = txInRange(transactions, haceDiasISO(30));
+  const ultimos30 = txInRange(transactions, haceDiasISO(29));
   const ingresos = totalByType(ultimos30, "ingreso");
   const egresos = totalEgresos(ultimos30);
   const neta = gananciaNeta(ultimos30);
