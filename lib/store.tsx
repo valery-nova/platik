@@ -140,6 +140,13 @@ function isPlatikData(x: unknown): x is PlatikData {
   );
 }
 
+/** La fase 1 solo admite BOB: corrige perfiles heredados en otra moneda. */
+function normalizarMoneda(d: PlatikData): PlatikData {
+  return d.profile.moneda === "BOB"
+    ? d
+    : { ...d, profile: { ...d.profile, moneda: "BOB" } };
+}
+
 /** Lee el almacenamiento; devuelve null si falta o es inválido. */
 function readStored(): State | null {
   try {
@@ -149,11 +156,14 @@ function readStored(): State | null {
     // Formato actual: { data, customized }
     const wrapped = parsed as { data?: unknown; customized?: unknown };
     if (isPlatikData(wrapped?.data)) {
-      return { data: wrapped.data, customized: wrapped.customized === true };
+      return {
+        data: normalizarMoneda(wrapped.data),
+        customized: wrapped.customized === true,
+      };
     }
     // Legado v1 (sin envoltura): se trata como datos propios del usuario
     if (isPlatikData(parsed)) {
-      return { data: parsed, customized: true };
+      return { data: normalizarMoneda(parsed), customized: true };
     }
     return null;
   } catch {
