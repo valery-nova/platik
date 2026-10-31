@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, RefreshCcw, SlidersHorizontal } from "lucide-react";
 import {
   Button,
@@ -31,19 +31,20 @@ export default function PerfilPage() {
   const [form, setForm] = useState(data.profile);
   const [dist, setDist] = useState(data.distribution);
   const [aviso, setAviso] = useState("");
+  const [sincronizado, setSincronizado] = useState(false);
 
-  useEffect(() => {
-    if (hydrated) {
-      setForm(data.profile);
-      setDist(data.distribution);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  // Ajuste de estado durante el render: una vez hidratados los datos,
+  // copiamos el perfil guardado a los formularios una sola vez.
+  if (hydrated && !sincronizado) {
+    setForm(data.profile);
+    setDist(data.distribution);
+    setSincronizado(true);
+  }
 
   if (!hydrated) return <PanelSkeleton />;
 
   const sumaDist = dist.operacion + dist.reinversion + dist.ahorro;
-  const excedente = excedenteEstimado(txInRange(data.transactions, haceDiasISO(30)));
+  const excedente = excedenteEstimado(txInRange(data.transactions, haceDiasISO(29)));
 
   function notify(msg: string) {
     setAviso(msg);
@@ -107,7 +108,7 @@ export default function PerfilPage() {
             </Field>
             <Field
               label="Moneda principal"
-              hint="Los montos se muestran en esta moneda. USD y USDC tendrán soporte visual en fases posteriores."
+              hint="Los montos registrados se muestran en esta moneda, sin conversión. USD y USDC llegarán con soporte de tipo de cambio en fases posteriores."
             >
               <Select
                 value={form.moneda}
@@ -116,7 +117,6 @@ export default function PerfilPage() {
                 }
               >
                 <option value="BOB">Bolivianos (BOB)</option>
-                <option value="USD">Dólares (USD)</option>
               </Select>
             </Field>
             <div className="flex justify-end">
