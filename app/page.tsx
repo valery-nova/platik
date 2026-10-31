@@ -90,7 +90,7 @@ export default function LandingPage() {
           <div className="anim-fade-up">
             <span className="mb-5 inline-flex items-center gap-2 rounded-full bg-menta-100 px-3.5 py-1.5 text-xs font-semibold text-menta-700">
               <ShieldCheck size={14} />
-              Hecho para emprendedores de Bolivia
+              Hecho para emprendedores y pequeños negocios
             </span>
             <h1 className="text-4xl font-bold leading-tight text-petroleo sm:text-5xl">
               Entiende tu dinero.

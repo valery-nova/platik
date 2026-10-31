@@ -1,6 +1,6 @@
 # PLATIK — Tu copiloto financiero con IA
 
-PLATIK ayuda a emprendedores, freelancers y pequeños negocios de Bolivia a
+PLATIK ayuda a emprendedores, freelancers y pequeños negocios a
 entender cuánto dinero gana realmente su negocio, controlar ingresos y gastos, y
 ahorrar en dólares digitales (USDC sobre la red Stellar).
 
