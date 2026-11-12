@@ -5,11 +5,16 @@
  * Gestiona: detección de extensión, conexión, red, balances y errores.
  * No guarda claves ni XDR: solo dirección pública y datos de Horizon.
  */
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getBalances } from "./account";
 import { StellarError, toStellarError } from "./errors";
 import type { BalancesInfo, WalletInfo } from "./types";
-import { connectWallet, disconnectWallet, isWalletInstalled } from "./wallet";
+import {
+  connectWallet,
+  detectWallet,
+  disconnectWallet,
+  restoreWallet,
+} from "./wallet";
 
 export type WalletStatus =
   | "checking"
@@ -17,83 +22,136 @@ export type WalletStatus =
   | "disconnected"
   | "connecting"
   | "connected"
+  | "wrong_network"
   | "error";
 
 export interface WalletState {
   status: WalletStatus;
   wallet: WalletInfo | null;
   balances: BalancesInfo | null;
-  /** Último error de wallet/Horizon (p. ej. cuenta sin activar). */
+  balancesLoading: boolean;
+  /** Error de conexión de wallet (rechazo, red, etc.). */
   error: StellarError | null;
+  /** Error al leer la cuenta en Horizon (p. ej. cuenta sin activar). */
+  accountError: StellarError | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   refreshBalances: () => Promise<void>;
+  /** Vuelve a comprobar si la extensión está instalada. */
+  recheck: () => Promise<void>;
 }
 
-type ConnectStatus = "idle" | "connecting" | "connected" | "error";
-
-const subscribeNoop = () => () => {};
-
 export function useStellarWallet(): WalletState {
-  // La instalación de la extensión no cambia durante la sesión:
-  // snapshot estático en cliente, false en servidor (evita mismatch).
-  const installed = useSyncExternalStore(
-    subscribeNoop,
-    isWalletInstalled,
-    () => false,
-  );
-  const [connectStatus, setConnectStatus] = useState<ConnectStatus>("idle");
+  const [status, setStatus] = useState<WalletStatus>("checking");
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [balances, setBalances] = useState<BalancesInfo | null>(null);
+  const [balancesLoading, setBalancesLoading] = useState(false);
   const [error, setError] = useState<StellarError | null>(null);
-
-  const status: WalletStatus = !installed
-    ? "not_installed"
-    : wallet
-      ? "connected"
-      : connectStatus === "connecting"
-        ? "connecting"
-        : connectStatus === "error"
-          ? "error"
-          : "disconnected";
+  const [accountError, setAccountError] = useState<StellarError | null>(null);
 
   const loadBalances = useCallback(async (address: string) => {
+    setBalancesLoading(true);
     try {
       const b = await getBalances(address);
       setBalances(b);
-      setError(null);
+      setAccountError(null);
     } catch (err) {
       setBalances(null);
-      setError(toStellarError(err, "horizon_error"));
+      setAccountError(toStellarError(err, "horizon_error"));
+    } finally {
+      setBalancesLoading(false);
     }
   }, []);
 
+  const applyWallet = useCallback(
+    async (info: WalletInfo) => {
+      setWallet(info);
+      setError(null);
+      setStatus("connected");
+      await loadBalances(info.address);
+    },
+    [loadBalances],
+  );
+
+  const handleError = useCallback((err: unknown) => {
+    const e = toStellarError(err);
+    setWallet(null);
+    setBalances(null);
+    setError(e);
+    setStatus(
+      e.code === "wrong_network"
+        ? "wrong_network"
+        : e.code === "wallet_not_installed"
+          ? "not_installed"
+          : "error",
+    );
+  }, []);
+
+  const init = useCallback(async () => {
+    const installed = await detectWallet();
+    if (!installed) {
+      setStatus("not_installed");
+      return;
+    }
+    try {
+      const info = await restoreWallet();
+      if (info) await applyWallet(info);
+      else setStatus("disconnected");
+    } catch (err) {
+      handleError(err);
+    }
+  }, [applyWallet, handleError]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Promise.resolve() difiere la ejecución: no hay setState síncrono en el efecto.
+    void Promise.resolve().then(() => {
+      if (!cancelled) void init();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [init]);
+
   const connect = useCallback(async () => {
-    if (!installed) return;
-    setConnectStatus("connecting");
+    setStatus("connecting");
     setError(null);
     try {
-      const info = await connectWallet();
-      setWallet(info);
-      setConnectStatus("connected");
-      await loadBalances(info.address);
+      await applyWallet(await connectWallet());
     } catch (err) {
-      setError(toStellarError(err));
-      setConnectStatus("error");
+      handleError(err);
     }
-  }, [installed, loadBalances]);
+  }, [applyWallet, handleError]);
 
   const disconnect = useCallback(async () => {
     await disconnectWallet();
     setWallet(null);
     setBalances(null);
     setError(null);
-    setConnectStatus("idle");
+    setAccountError(null);
+    setStatus("disconnected");
   }, []);
 
   const refreshBalances = useCallback(async () => {
     if (wallet) await loadBalances(wallet.address);
   }, [wallet, loadBalances]);
 
-  return { status, wallet, balances, error, connect, disconnect, refreshBalances };
+  const recheck = useCallback(async () => {
+    setStatus("checking");
+    setError(null);
+    await init();
+  }, [init]);
+
+  return {
+    status,
+    wallet,
+    balances,
+    balancesLoading,
+    error,
+    accountError,
+    connect,
+    disconnect,
+    refreshBalances,
+    recheck,
+  };
 }

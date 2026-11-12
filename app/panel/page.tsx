@@ -76,8 +76,10 @@ const TIPO_LABEL: Record<string, string> = {
 export default function DashboardPage() {
   const { data, hydrated } = usePlatik();
   if (!hydrated) return <PanelSkeleton />;
-  const { transactions, goals, profile, distribution } = data;
+  const { transactions, goals, profile, distribution, aportesStellar } = data;
   const moneda = profile.moneda;
+  const aportesConfirmados = aportesStellar.filter((a) => a.estado === "confirmada");
+  const usdcConfirmado = aportesConfirmados.reduce((s, a) => s + a.importe, 0);
 
   const ultimos30 = txInRange(transactions, haceDiasISO(29));
   const ingresos = totalByType(ultimos30, "ingreso");
@@ -286,6 +288,17 @@ export default function DashboardPage() {
                 mascot="celebra"
               />
             )}
+            <div className="rounded-xl bg-menta-50 p-3">
+              <p className="text-xs text-tinta-suave">
+                Ahorro on-chain (USDC de prueba · Stellar Testnet)
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-petroleo">
+                {usdcConfirmado.toLocaleString("es-BO", { maximumFractionDigits: 7 })} USDC
+                <span className="ml-1 font-normal text-tinta-suave">
+                  · {aportesConfirmados.length} confirmado(s)
+                </span>
+              </p>
+            </div>
           </div>
         </Card>
       </div>

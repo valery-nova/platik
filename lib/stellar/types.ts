@@ -40,6 +40,8 @@ export interface AporteStellar {
   createdAt: string;
   /** ISO 8601 — confirmación en Horizon (solo si estado === "confirmada"). */
   confirmedAt?: string;
+  /** Ledger donde Horizon registró la transacción. */
+  ledger?: number;
   /** Mensaje de error legible si estado === "fallida". */
   error?: string;
 }

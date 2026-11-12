@@ -10,6 +10,8 @@ export interface TxStatus {
   found: boolean;
   successful: boolean | null;
   ledger: number | null;
+  /** ISO 8601 del cierre del ledger, según Horizon. */
+  closedAt: string | null;
 }
 
 /** Consulta el estado de una transacción por hash. */
@@ -20,11 +22,12 @@ export async function getTransactionStatus(hash: string): Promise<TxStatus> {
       found: true,
       successful: tx.successful,
       ledger: tx.ledger_attr,
+      closedAt: tx.created_at ?? null,
     };
   } catch (err) {
     const status = (err as { response?: { status?: number } })?.response?.status;
     if (status === 404) {
-      return { found: false, successful: null, ledger: null };
+      return { found: false, successful: null, ledger: null, closedAt: null };
     }
     throw toStellarError(err, "horizon_error");
   }

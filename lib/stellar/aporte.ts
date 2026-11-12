@@ -44,7 +44,9 @@ export function crearAporteStellar(params: NuevoAporteParams): AporteStellar {
 export function transicionarAporteStellar(
   aporte: AporteStellar,
   estado: AporteStellarEstado,
-  extra?: Partial<Pick<AporteStellar, "txHash" | "confirmedAt" | "error">>,
+  extra?: Partial<
+    Pick<AporteStellar, "txHash" | "confirmedAt" | "error" | "ledger">
+  >,
 ): AporteStellar {
   return { ...aporte, estado, ...extra };
 }

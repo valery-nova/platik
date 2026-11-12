@@ -20,6 +20,7 @@ import {
   InvalidAmountError,
   RecipientNotConfiguredError,
   TransactionFailedError,
+  TrustlineMissingError,
 } from "./errors";
 import { usdcTestnetAsset } from "./trustline";
 import { signTransactionXdr } from "./wallet";
@@ -78,16 +79,21 @@ export interface SendPaymentResult {
   successful: boolean | null;
 }
 
+export interface SignAndSubmitResult {
+  txHash: string;
+}
+
 /**
- * Flujo completo de un aporte: valida, construye, firma con la wallet,
- * envía a Horizon y espera confirmación.
+ * Firma y envía el pago a Horizon sin esperar confirmación.
+ * Devuelve el hash en cuanto Horizon acepta la transacción;
+ * la confirmación se verifica aparte con waitForConfirmation.
  * El XDR firmado solo vive en memoria durante esta llamada.
  */
-export async function sendUsdcPayment(params: {
+export async function signAndSubmitUsdcPayment(params: {
   sourceAddress: string;
   amountInput: string;
   memoText?: string;
-}): Promise<SendPaymentResult> {
+}): Promise<SignAndSubmitResult> {
   const recipient = getTestnetRecipient();
   if (!recipient) throw new RecipientNotConfiguredError();
 
@@ -95,6 +101,9 @@ export async function sendUsdcPayment(params: {
 
   const sourceAccount = await loadAccount(params.sourceAddress);
   const balances = parseBalances(sourceAccount);
+  if (!balances.tieneTrustlineUsdc) {
+    throw new TrustlineMissingError();
+  }
   if (balances.usdc === null) {
     throw new InsufficientBalanceError();
   }
@@ -127,15 +136,29 @@ export async function sendUsdcPayment(params: {
     );
   }
 
-  const status = await waitForConfirmation(submit.hash);
+  return { txHash: submit.hash };
+}
+
+/**
+ * Flujo completo de un aporte: firma, envía y espera confirmación.
+ * La UI usa signAndSubmitUsdcPayment + waitForConfirmation por separado
+ * para poder registrar los estados intermedios del aporte.
+ */
+export async function sendUsdcPayment(params: {
+  sourceAddress: string;
+  amountInput: string;
+  memoText?: string;
+}): Promise<SendPaymentResult> {
+  const { txHash } = await signAndSubmitUsdcPayment(params);
+  const status = await waitForConfirmation(txHash);
   if (status.successful === false) {
     throw new TransactionFailedError(
-      `La transacción ${submit.hash} falló en el ledger ${status.ledger}.`,
+      `La transacción ${txHash} falló en el ledger ${status.ledger}.`,
     );
   }
 
   return {
-    txHash: submit.hash,
+    txHash,
     ledger: status.ledger,
     successful: status.successful,
   };
