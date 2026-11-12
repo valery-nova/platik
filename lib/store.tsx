@@ -7,6 +7,7 @@ import {
   useMemo,
   useReducer,
 } from "react";
+import type { AporteStellar } from "./stellar/types";
 import type {
   Distribution,
   Goal,
@@ -29,6 +30,8 @@ type Action =
   | { type: "goal/aporte"; id: string; monto: number }
   | { type: "profile/update"; profile: Profile }
   | { type: "distribution/update"; distribution: Distribution }
+  | { type: "aporteStellar/upsert"; aporte: AporteStellar }
+  | { type: "aporteStellar/delete"; id: string }
   | { type: "reset" };
 
 interface State {
@@ -85,6 +88,22 @@ function reducer(state: State, action: Action): State {
       return withData(state, { profile: action.profile });
     case "distribution/update":
       return withData(state, { distribution: action.distribution });
+    case "aporteStellar/upsert":
+      return withData(state, {
+        aportesStellar: state.data.aportesStellar.some(
+          (a) => a.id === action.aporte.id,
+        )
+          ? state.data.aportesStellar.map((a) =>
+              a.id === action.aporte.id ? action.aporte : a,
+            )
+          : [action.aporte, ...state.data.aportesStellar],
+      });
+    case "aporteStellar/delete":
+      return withData(state, {
+        aportesStellar: state.data.aportesStellar.filter(
+          (a) => a.id !== action.id,
+        ),
+      });
     case "reset":
       return { data: buildDemoData(), customized: false };
     default:
@@ -104,6 +123,8 @@ interface Store {
   addAporte: (id: string, monto: number) => void;
   updateProfile: (profile: Profile) => void;
   updateDistribution: (distribution: Distribution) => void;
+  upsertAporteStellar: (aporte: AporteStellar) => void;
+  deleteAporteStellar: (id: string) => void;
   resetDemo: () => void;
 }
 
@@ -115,6 +136,7 @@ const EMPTY_DATA: PlatikData = {
   goals: [],
   profile: { nombreNegocio: "", nombreUsuario: "", moneda: "BOB" },
   distribution: { operacion: 55, reinversion: 25, ahorro: 20 },
+  aportesStellar: [],
 };
 
 const INITIAL_STATE: State = { data: EMPTY_DATA, customized: false };
@@ -140,11 +162,24 @@ function isPlatikData(x: unknown): x is PlatikData {
   );
 }
 
+/** Completa campos añadidos después del primer release. */
+function conDefecto(d: PlatikData): PlatikData {
+  return {
+    ...d,
+    aportesStellar: Array.isArray(d.aportesStellar) ? d.aportesStellar : [],
+  };
+}
+
 /** La fase 1 solo admite BOB: corrige perfiles heredados en otra moneda. */
 function normalizarMoneda(d: PlatikData): PlatikData {
   return d.profile.moneda === "BOB"
     ? d
     : { ...d, profile: { ...d.profile, moneda: "BOB" } };
+}
+
+/** Datos antiguos o nuevos: normaliza moneda y campos con valor por defecto. */
+function normalizarDatos(d: PlatikData): PlatikData {
+  return normalizarMoneda(conDefecto(d));
 }
 
 /** Lee el almacenamiento; devuelve null si falta o es inválido. */
@@ -157,13 +192,13 @@ function readStored(): State | null {
     const wrapped = parsed as { data?: unknown; customized?: unknown };
     if (isPlatikData(wrapped?.data)) {
       return {
-        data: normalizarMoneda(wrapped.data),
+        data: normalizarDatos(wrapped.data),
         customized: wrapped.customized === true,
       };
     }
     // Legado v1 (sin envoltura): se trata como datos propios del usuario
     if (isPlatikData(parsed)) {
-      return { data: normalizarMoneda(parsed), customized: true };
+      return { data: normalizarDatos(parsed), customized: true };
     }
     return null;
   } catch {
@@ -228,6 +263,10 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
       updateProfile: (profile) => dispatch({ type: "profile/update", profile }),
       updateDistribution: (distribution) =>
         dispatch({ type: "distribution/update", distribution }),
+      upsertAporteStellar: (aporte) =>
+        dispatch({ type: "aporteStellar/upsert", aporte }),
+      deleteAporteStellar: (id) =>
+        dispatch({ type: "aporteStellar/delete", id }),
       resetDemo: () => dispatch({ type: "reset" }),
     }),
     [state.data, hydrated],

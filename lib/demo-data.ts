@@ -94,5 +94,6 @@ export function buildDemoData(): PlatikData {
         ahorroAcumulado: 240,
       },
     ],
+    aportesStellar: [],
   };
 }
