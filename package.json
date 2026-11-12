@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@stellar/stellar-sdk": "^17.4.0",
+    "@stellar/varial-sdk": "^7.0.0",
     "lucide-react": "^1.59.0",
     "next": "16.4.2",
     "react": "19.3.0",
