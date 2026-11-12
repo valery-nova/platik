@@ -59,13 +59,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Sidebar escritorio */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-petroleo/8 bg-white px-4 py-6 lg:flex">
         <Link href="/" className="mb-2 block px-2" aria-label="Ir a la portada">
-          <Image
-            src="/brand/logo_horizontal.png"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logos/logo-without-slogan.svg"
             alt="PLATIK"
             width={170}
             height={47}
             className="h-9 w-auto"
-            priority
           />
         </Link>
         <p className="mb-6 px-2 text-xs text-tinta-suave">
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto flex flex-col gap-3 px-2">
           <DemoBadge />
           <Image
-            src="/brand/mascot_explica.png"
+            src="/brand/mascota/expresiones/expresion-explica.png"
             alt=""
             width={120}
             height={120}
@@ -87,13 +87,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Barra superior móvil */}
       <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-petroleo/8 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
         <Link href="/" aria-label="Ir a la portada">
-          <Image
-            src="/brand/logo_horizontal.png"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logos/logo-without-slogan.svg"
             alt="PLATIK"
             width={130}
             height={36}
             className="h-7 w-auto"
-            priority
           />
         </Link>
         <button
@@ -116,8 +116,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-6 flex items-center justify-between">
-              <Image
-                src="/brand/logo_horizontal.png"
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/logos/logo-without-slogan.svg"
                 alt="PLATIK"
                 width={140}
                 height={39}
