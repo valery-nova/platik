@@ -247,16 +247,16 @@ export default function LandingPage() {
           <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
             <div>
               <span className="mb-4 inline-block rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-menta">
-                Próximamente · USDC + Stellar
+                Demo en Stellar Testnet · USDC de prueba
               </span>
               <h2 className="text-2xl font-bold sm:text-3xl">
                 Ahorra en dólares digitales
               </h2>
               <p className="mt-4 max-w-xl text-white/80">
-                PLATIK te prepara para conectar tus metas de ahorro con USDC en la
-                red Stellar: una forma de reservar valor en dólares digitales sin
-                complicaciones. En esta versión, las metas son registros internos
-                de demostración — todavía no representan fondos en una blockchain.
+                Conecta tu wallet Stellar y aporta USDC a tus metas de ahorro, firmando
+                tú mismo cada transacción. En esta demo todo ocurre en{" "}
+                <strong>Stellar Testnet</strong> con USDC de prueba de Circle, sin
+                valor monetario real.
               </p>
               <ul className="mt-6 space-y-2 text-sm text-white/80">
                 <li className="flex items-center gap-2">
@@ -269,7 +269,7 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-menta" />
-                  Integración verificable en Stellar Testnet en la fase final.
+                  Cada aporte se verifica en Horizon y enlaza al explorador.
                 </li>
               </ul>
             </div>
