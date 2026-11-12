@@ -13,7 +13,6 @@ import {
 import {
   getTestnetRecipient,
   NETWORK_PASSPHRASE_TESTNET,
-  USDC_TESTNET,
 } from "./config";
 import { horizonServer, loadAccount, parseBalances } from "./account";
 import {
