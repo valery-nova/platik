@@ -1,3 +1,5 @@
+import type { AporteStellar } from "./stellar/types";
+
 export type TxType = "ingreso" | "gasto" | "costo";
 
 export interface Transaction {
@@ -39,4 +41,6 @@ export interface PlatikData {
   goals: Goal[];
   profile: Profile;
   distribution: Distribution;
+  /** Aportes on-chain (Stellar Testnet). Sin XDR ni claves. */
+  aportesStellar: AporteStellar[];
 }

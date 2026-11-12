@@ -198,7 +198,7 @@ export default function AnalisisPage() {
       <Card className="p-6">
         <div className="flex flex-col gap-5 sm:flex-row">
           <Image
-            src="/brand/mascot_explica.png"
+            src="/brand/mascota/expresiones/expresion-explica.png"
             alt="Mascota de PLATIK explicando"
             width={130}
             height={130}

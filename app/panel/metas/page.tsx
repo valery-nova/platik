@@ -17,6 +17,7 @@ import {
 import { usePlatik } from "@/lib/store";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
 import type { Goal } from "@/lib/types";
+import { StellarAhorro } from "@/components/stellar-ahorro";
 
 interface GoalFormState {
   nombre: string;
@@ -150,10 +151,10 @@ export default function MetasPage() {
       <Card className="flex gap-3 border-lavanda/30 bg-lavanda-50 p-4">
         <Coins size={20} className="mt-0.5 shrink-0 text-lavanda-600" />
         <p className="text-sm text-tinta-suave">
-          Las metas son <strong>registros internos de PLATIK</strong>: sirven para
-          planificar tu ahorro, pero todavía no representan fondos depositados en
-          una blockchain. La conexión con USDC en Stellar Testnet llega en la
-          fase 4.
+          Las metas en Bs son <strong>registros internos de PLATIK</strong> para
+          planificar tu ahorro. Los aportes en USDC de prueba se envían de verdad
+          a Stellar Testnet desde tu wallet en la sección{" "}
+          <strong>Ahorro on-chain</strong> (sin valor monetario real).
         </p>
       </Card>
 
@@ -237,6 +238,8 @@ export default function MetasPage() {
           })}
         </div>
       )}
+
+      <StellarAhorro />
 
       {/* Modal nueva / editar meta */}
       <Modal
