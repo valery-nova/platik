@@ -34,7 +34,9 @@ export function buildDemoData(): PlatikData {
       moneda: "BOB",
       countryCode: "BO",
       onboardingOption: "bolivia",
-      onboardingDone: true,
+      // La demo arranca sin onboarding completado: la primera visita ofrece
+      // elegir modalidad (Bolivia / USD / resto del mundo) antes de usar el panel.
+      onboardingDone: false,
     },
     distribution: { operacion: 55, reinversion: 25, ahorro: 20 },
     transactions: [
