@@ -20,8 +20,34 @@ interface ParsedDecimal {
   frac: string;
 }
 
+/**
+ * Number#toString() usa notación exponencial para valores muy pequeños o
+ * grandes (0.0000001 → "1e-7"). La expandimos a decimal plano para que el
+ * parser de dinero la acepte sin lanzar excepciones.
+ */
+function expandExponential(n: number): string {
+  const s = n.toString();
+  if (!/[eE]/.test(s)) return s;
+  const [mantissa, expStr] = s.split(/[eE]/);
+  const exp = Number.parseInt(expStr, 10);
+  const neg = mantissa.startsWith("-");
+  const [intPart, fracPart = ""] = (neg ? mantissa.slice(1) : mantissa).split(".");
+  const digits = intPart + fracPart;
+  const point = intPart.length + exp;
+  let out: string;
+  if (point <= 0) {
+    out = `0.${"0".repeat(-point)}${digits}`;
+  } else if (point >= digits.length) {
+    out = digits + "0".repeat(point - digits.length);
+  } else {
+    out = `${digits.slice(0, point)}.${digits.slice(point)}`;
+  }
+  return `${neg ? "-" : ""}${out}`;
+}
+
 function parseDecimal(value: number | string): ParsedDecimal {
-  const str = typeof value === "number" ? value.toString() : value.trim();
+  const str =
+    typeof value === "number" ? expandExponential(value).trim() : value.trim();
   if (!/^-?\d+(\.\d+)?$/.test(str)) throw new Error(`Importe no válido: ${str}`);
   const neg = str.startsWith("-");
   const [int, frac = ""] = (neg ? str.slice(1) : str).split(".");

@@ -26,6 +26,18 @@ test("applyRate convierte con redondeo half-up sin perder precisión", () => {
   assert.equal(applyRate(3, 1 / 3, 2), 1);
 });
 
+test("acepta notación exponencial de Number sin lanzar excepciones", () => {
+  // 0.0000001 se serializa como "1e-7": debe expandirse, no romper el parser.
+  assert.equal(roundToCurrency(0.0000001, 7), 0.0000001);
+  assert.equal(roundToCurrency(0.0000001, 0), 0);
+  assert.equal(roundToCurrency(1.23e-7, 8), 0.00000012);
+  assert.equal(roundToCurrency(-1e-7, 7), -0.0000001);
+  // 1e21 excede el entero seguro de JS y se rechaza por diseño; probamos un
+  // entero grande dentro de rango.
+  assert.equal(roundToCurrency(123456789.126, 2), 123456789.13);
+  assert.equal(sumAmounts([1e-7, 2e-7], 7), 0.0000003);
+});
+
 test("applyRate rechaza valores no finitos", () => {
   assert.throws(() => applyRate(Number.NaN, 1, 2));
   assert.throws(() => applyRate(1, Number.POSITIVE_INFINITY, 2));
