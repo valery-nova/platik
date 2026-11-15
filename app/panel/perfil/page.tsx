@@ -44,9 +44,11 @@ export default function PerfilPage() {
   // posterior podría revertir una configuración recién hecha.
   const [prev, setPrev] = useState({ profile: data.profile, distribution: data.distribution });
   if (prev.profile !== data.profile || prev.distribution !== data.distribution) {
+    // Solo se resincroniza el formulario cuya fuente cambió: guardar el
+    // perfil no debe borrar porcentajes de distribución aún sin guardar.
+    if (prev.profile !== data.profile) setForm(data.profile);
+    if (prev.distribution !== data.distribution) setDist(data.distribution);
     setPrev({ profile: data.profile, distribution: data.distribution });
-    setForm(data.profile);
-    setDist(data.distribution);
   }
 
   if (!hydrated) return <PanelSkeleton />;
