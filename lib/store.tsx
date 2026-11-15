@@ -162,12 +162,32 @@ function isPlatikData(x: unknown): x is PlatikData {
   );
 }
 
-/** Completa campos añadidos después del primer release. */
+/** Completa campos añadidos después del primer release y descarta entradas corruptas. */
 function conDefecto(d: PlatikData): PlatikData {
-  return {
-    ...d,
-    aportesStellar: Array.isArray(d.aportesStellar) ? d.aportesStellar : [],
-  };
+  const ESTADOS = new Set([
+    "preparado",
+    "firma_solicitada",
+    "enviada",
+    "confirmada",
+    "fallida",
+    "cancelada",
+  ]);
+  const aportes = Array.isArray(d.aportesStellar)
+    ? d.aportesStellar.filter(
+        (a): a is AporteStellar =>
+          !!a &&
+          typeof a === "object" &&
+          typeof a.id === "string" &&
+          typeof a.goalId === "string" &&
+          typeof a.walletOrigen === "string" &&
+          typeof a.createdAt === "string" &&
+          typeof a.importe === "number" &&
+          Number.isFinite(a.importe) &&
+          typeof a.estado === "string" &&
+          ESTADOS.has(a.estado as AporteStellar["estado"]),
+      )
+    : [];
+  return { ...d, aportesStellar: aportes };
 }
 
 /** La fase 1 solo admite BOB: corrige perfiles heredados en otra moneda. */

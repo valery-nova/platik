@@ -110,7 +110,15 @@ function Aviso({
   );
 }
 
-type Paso = "form" | "revision" | "firmando" | "enviada" | "confirmada" | "fallida" | "cancelada";
+type Paso =
+  | "form"
+  | "revision"
+  | "firmando"
+  | "enviada"
+  | "pendiente"
+  | "confirmada"
+  | "fallida"
+  | "cancelada";
 
 export function StellarAhorro() {
   const { data, upsertAporteStellar } = usePlatik();
@@ -241,6 +249,23 @@ export function StellarAhorro() {
     setPaso("cancelada");
   }
 
+  /** Firma y envía; si falta la trustline la crea y reintenta una vez. */
+  async function enviarPago(): Promise<string> {
+    const params = {
+      sourceAddress: w.wallet!.address,
+      amountInput: monto,
+      memoText: "PLATIK ahorro",
+    };
+    try {
+      return (await signAndSubmitUsdcPayment(params)).txHash;
+    } catch (err) {
+      if (toStellarError(err).code !== "trustline_missing" || !w.wallet) throw err;
+      await ensureUsdcTrustline(w.wallet.address);
+      await w.refreshBalances();
+      return (await signAndSubmitUsdcPayment(params)).txHash;
+    }
+  }
+
   async function firmarYEnviar() {
     if (!actual || !w.wallet) return;
     let a = transicionarAporteStellar(actual, "firma_solicitada");
@@ -250,12 +275,7 @@ export function StellarAhorro() {
 
     let hash: string;
     try {
-      const res = await signAndSubmitUsdcPayment({
-        sourceAddress: w.wallet.address,
-        amountInput: monto,
-        memoText: "PLATIK ahorro",
-      });
-      hash = res.txHash;
+      hash = await enviarPago();
     } catch (err) {
       const e = toStellarError(err);
       const rechazado = e.code === "wallet_rejected";
@@ -289,7 +309,9 @@ export function StellarAhorro() {
       setPaso(s.successful ? "confirmada" : "fallida");
       void w.refreshBalances();
     } catch {
-      // Sigue "enviada": se reverifica al recargar o con el botón del historial.
+      // Sin confirmación a tiempo: queda "enviada" y se reverifica al recargar
+      // o con el botón del historial. Se puede cerrar el modal sin perderla.
+      setPaso("pendiente");
     }
   }
 
@@ -314,7 +336,8 @@ export function StellarAhorro() {
     }
   }
 
-  const enCurso = paso === "firmando" || paso === "enviada";
+  // Solo "firmando" bloquea el cierre: la firma aún no se envió a Horizon.
+  const enCurso = paso === "firmando";
 
   return (
     <section className="space-y-4">
@@ -692,6 +715,27 @@ export function StellarAhorro() {
             <ExtLink href={explorerTxUrl(actual.txHash)}>
               <span className="font-mono">{corto(actual.txHash, 8)}</span>
             </ExtLink>
+          </div>
+        )}
+
+        {paso === "pendiente" && actual?.txHash && (
+          <div className="space-y-3 text-sm">
+            <Aviso tone="lavanda">
+              <Loader2 size={16} className="mt-0.5 shrink-0 animate-spin" />
+              <span>
+                El aporte ya se envió a Stellar Testnet pero Horizon aún no lo
+                confirma. No se pierde: el historial lo reverificará al recargar
+                la página.
+              </span>
+            </Aviso>
+            <ExtLink href={explorerTxUrl(actual.txHash)}>
+              <span className="font-mono">{corto(actual.txHash, 8)}</span>
+            </ExtLink>
+            <div className="flex justify-end">
+              <Button variant="ghost" onClick={() => setModalOpen(false)}>
+                Cerrar
+              </Button>
+            </div>
           </div>
         )}
 
