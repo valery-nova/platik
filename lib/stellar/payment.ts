@@ -52,7 +52,20 @@ export function formatUsdcAmount(stellarAmount: string): string {
   return dec ? `${int}.${dec}` : int;
 }
 
-/** Construye (sin firmar) la transacción de pago USDC hacia el receptor. */
+/**
+ * Hash de la transacción en hexadecimal, idéntico al que devuelve Horizon.
+ * Se calcula localmente desde el sobre firmado, sin depender de la respuesta
+ * de red: permite rastrear el envío aunque se pierda la respuesta de Horizon.
+ */
+function transactionHashHex(tx: { hash(): Uint8Array }): string {
+  return Array.from(tx.hash(), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Construye (sin firmar) la transacción de pago USDC hacia el receptor.
+ * `amount` va en formato Stellar (stroops, como lo devuelve parseUsdcAmount);
+ * Operation.payment espera USDC en decimal, así que se convierte aquí.
+ */
 export function buildPaymentXdr(
   sourceAccount: Horizon.AccountResponse,
   destination: string,
@@ -66,7 +79,7 @@ export function buildPaymentXdr(
     Operation.payment({
       destination,
       asset: usdcTestnetAsset(),
-      amount,
+      amount: formatUsdcAmount(amount),
     }),
   );
   if (memoText) builder.addMemo(Memo.text(memoText.slice(0, 28)));
@@ -88,6 +101,11 @@ export interface SignAndSubmitResult {
  * Devuelve el hash en cuanto Horizon acepta la transacción;
  * la confirmación se verifica aparte con waitForConfirmation.
  * El XDR firmado solo vive en memoria durante esta llamada.
+ *
+ * Si Horizon no responde (fallo de red o timeout), la transacción pudo
+ * haberse aceptado igualmente: se devuelve igualmente su hash (calculado
+ * localmente) para que la UI la rastree con waitForConfirmation en lugar
+ * de marcarla como fallida y perder el rastro de un envío real.
  */
 export async function signAndSubmitUsdcPayment(params: {
   sourceAddress: string;
@@ -126,14 +144,25 @@ export async function signAndSubmitUsdcPayment(params: {
     signedXdr,
     NETWORK_PASSPHRASE_TESTNET,
   );
+  const txHash = transactionHashHex(signedTx);
 
   let submit;
   try {
     submit = await horizonServer.submitTransaction(signedTx);
   } catch (err) {
-    throw new TransactionFailedError(
-      err instanceof Error ? err.message : "Horizon rechazó la transacción.",
-    );
+    const status = (err as { response?: { status?: number } })?.response
+      ?.status;
+    if (typeof status === "number") {
+      // Horizon respondió con un error: la transacción no se envió.
+      throw new TransactionFailedError(
+        err instanceof Error ? err.message : "Horizon rechazó la transacción.",
+      );
+    }
+    // Sin respuesta de Horizon (red/timeout): la transacción pudo entrar en
+    // el ledger. Se devuelve el hash para rastrearla; si nunca aparece,
+    // waitForConfirmation agota su espera y el aporte queda "enviada"
+    // (reverificable desde el historial) en lugar de "fallida".
+    return { txHash };
   }
 
   return { txHash: submit.hash };
