@@ -17,6 +17,7 @@ function tx(
     categoria,
     descripcion,
     fecha: haceDiasISO(haceDias),
+    moneda: "BOB",
   };
 }
 
@@ -31,6 +32,9 @@ export function buildDemoData(): PlatikData {
       nombreNegocio: "Artesanías La Chamba",
       nombreUsuario: "Valeria",
       moneda: "BOB",
+      countryCode: "BO",
+      onboardingOption: "bolivia",
+      onboardingDone: true,
     },
     distribution: { operacion: 55, reinversion: 25, ahorro: 20 },
     transactions: [
@@ -77,6 +81,7 @@ export function buildDemoData(): PlatikData {
         nombre: "Fondo de emergencia",
         montoObjetivo: 10000,
         ahorroAcumulado: 3250,
+        moneda: "BOB",
         fechaObjetivo: hoyISO(
           new Date(new Date().getFullYear(), new Date().getMonth() + 5, 1),
         ),
@@ -86,12 +91,14 @@ export function buildDemoData(): PlatikData {
         nombre: "Nuevo horno de cerámica",
         montoObjetivo: 6500,
         ahorroAcumulado: 1800,
+        moneda: "BOB",
       },
       {
         id: "goal-3",
         nombre: "Ahorro en dólares digitales (USDC)",
         montoObjetivo: 1500,
         ahorroAcumulado: 240,
+        moneda: "BOB",
       },
     ],
     aportesStellar: [],

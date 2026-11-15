@@ -16,6 +16,7 @@ import type {
   Transaction,
 } from "./types";
 import { buildDemoData } from "./demo-data";
+import { migrateData } from "./migration";
 
 const STORAGE_KEY = "platik:data:v1";
 
@@ -190,16 +191,9 @@ function conDefecto(d: PlatikData): PlatikData {
   return { ...d, aportesStellar: aportes };
 }
 
-/** La fase 1 solo admite BOB: corrige perfiles heredados en otra moneda. */
-function normalizarMoneda(d: PlatikData): PlatikData {
-  return d.profile.moneda === "BOB"
-    ? d
-    : { ...d, profile: { ...d.profile, moneda: "BOB" } };
-}
-
-/** Datos antiguos o nuevos: normaliza moneda y campos con valor por defecto. */
+/** Datos antiguos o nuevos: migración compatible (monedas, país, metas). */
 function normalizarDatos(d: PlatikData): PlatikData {
-  return normalizarMoneda(conDefecto(d));
+  return migrateData(conDefecto(d));
 }
 
 /** Lee el almacenamiento; devuelve null si falta o es inválido. */
