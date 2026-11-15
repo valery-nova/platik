@@ -25,6 +25,12 @@ import { usePlatik } from "@/lib/store";
 import { CATEGORIAS } from "@/lib/categories";
 import { hoyISO } from "@/lib/finance";
 import { formatFecha, formatMoney } from "@/lib/format";
+import { currencyDigits, currencyName, listCurrencies } from "@/lib/currency/catalog";
+import { roundToCurrency } from "@/lib/currency/decimal";
+import {
+  buildConversionFields,
+  getExchangeRateProvider,
+} from "@/lib/currency/rates";
 import type { Transaction, TxType } from "@/lib/types";
 
 const TIPO_LABEL: Record<TxType, string> = {
@@ -36,6 +42,7 @@ const TIPO_LABEL: Record<TxType, string> = {
 interface FormState {
   tipo: TxType;
   monto: string;
+  moneda: string;
   categoria: string;
   descripcion: string;
   fecha: string;
@@ -44,18 +51,33 @@ interface FormState {
 const FORM_INICIAL: FormState = {
   tipo: "ingreso",
   monto: "",
+  moneda: "BOB",
   categoria: CATEGORIAS.ingreso[0],
   descripcion: "",
   fecha: "",
 };
 
+/** Campos de conversión del movimiento (vacío si no hay cotización válida). */
+async function conversionFor(
+  from: string,
+  to: string,
+  amount: number,
+): Promise<ReturnType<typeof buildConversionFields>> {
+  if (from.toUpperCase() === to.toUpperCase()) return {};
+  const provider = getExchangeRateProvider();
+  const quote = await provider.getRate(from.toUpperCase(), to.toUpperCase());
+  return buildConversionFields(from, to, amount, quote);
+}
+
 function TransactionForm({
   initial,
+  baseMoneda,
   submitLabel,
   onSubmit,
   onCancel,
 }: {
   initial: FormState;
+  baseMoneda: string;
   submitLabel: string;
   onSubmit: (f: FormState) => void;
   onCancel: () => void;
@@ -105,18 +127,40 @@ function TransactionForm({
           ))}
         </div>
       </Field>
-      <Field label="Monto (Bs)">
-        <Input
-          type="number"
-          min="0"
-          step="0.01"
-          inputMode="decimal"
-          placeholder="0.00"
-          value={form.monto}
-          onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))}
-          required
-        />
-      </Field>
+      <div className="grid grid-cols-[1fr_110px] gap-3">
+        <Field label="Monto">
+          <Input
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            placeholder="0.00"
+            value={form.monto}
+            onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))}
+            required
+          />
+        </Field>
+        <Field label="Moneda">
+          <Select
+            value={form.moneda}
+            onChange={(e) => setForm((f) => ({ ...f, moneda: e.target.value }))}
+            aria-label="Moneda del movimiento"
+          >
+            {listCurrencies().map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.code} · {currencyName(c.code)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      {form.moneda !== baseMoneda && (
+        <p className="text-xs text-tinta-suave">
+          Se registrará en {form.moneda}. Si no hay cotización válida hacia{" "}
+          {baseMoneda}, quedará pendiente de conversión y no se inventará una
+          equivalencia.
+        </p>
+      )}
       <Field label="Descripción">
         <Input
           placeholder="Ej. Ventas del fin de semana"
@@ -321,6 +365,12 @@ export default function TransaccionesPage() {
                     <Badge tone={t.tipo === "ingreso" ? "menta" : "coral"}>
                       {TIPO_LABEL[t.tipo]}
                     </Badge>
+                    {t.moneda !== data.profile.moneda && (
+                      <Badge tone="lavanda">
+                        {t.moneda}
+                        {t.baseAmount == null ? " · pendiente" : ""}
+                      </Badge>
+                    )}
                   </p>
                 </div>
                 <p
@@ -329,7 +379,7 @@ export default function TransaccionesPage() {
                   }`}
                 >
                   {t.tipo === "ingreso" ? "+" : "−"}
-                  {formatMoney(t.monto, moneda)}
+                  {formatMoney(t.monto, t.moneda)}
                 </p>
                 <div className="flex shrink-0 gap-1">
                   <button
@@ -368,33 +418,41 @@ export default function TransaccionesPage() {
             key={modal === "nueva" ? "nueva" : modal.id}
             initial={
               modal === "nueva"
-                ? { ...FORM_INICIAL, fecha: hoyISO() }
+                ? { ...FORM_INICIAL, fecha: hoyISO(), moneda: moneda }
                 : {
                     tipo: modal.tipo,
                     monto: String(modal.monto),
+                    moneda: modal.moneda,
                     categoria: modal.categoria,
                     descripcion: modal.descripcion,
                     fecha: modal.fecha,
                   }
             }
+            baseMoneda={moneda}
             submitLabel={modal === "nueva" ? "Guardar" : "Actualizar"}
             onCancel={() => setModal(null)}
             onSubmit={(f) => {
-              const tx = {
-                tipo: f.tipo,
-                monto: Number(f.monto),
-                categoria: f.categoria,
-                descripcion: f.descripcion.trim(),
-                fecha: f.fecha,
-              };
-              if (modal === "nueva") {
-                addTransaction(tx);
-                notify("Transacción registrada correctamente.");
-              } else {
-                updateTransaction({ ...tx, id: modal.id });
-                notify("Transacción actualizada.");
-              }
-              setModal(null);
+              void (async () => {
+                const monto = roundToCurrency(Number(f.monto), currencyDigits(f.moneda));
+                const conversion = await conversionFor(f.moneda, moneda, monto);
+                const tx = {
+                  tipo: f.tipo,
+                  monto,
+                  moneda: f.moneda,
+                  categoria: f.categoria,
+                  descripcion: f.descripcion.trim(),
+                  fecha: f.fecha,
+                  ...conversion,
+                };
+                if (modal === "nueva") {
+                  addTransaction(tx);
+                  notify("Transacción registrada correctamente.");
+                } else {
+                  updateTransaction({ ...tx, id: modal.id });
+                  notify("Transacción actualizada.");
+                }
+                setModal(null);
+              })();
             }}
           />
         )}
@@ -410,7 +468,7 @@ export default function TransaccionesPage() {
           <div className="space-y-4">
             <p className="text-sm text-tinta-suave">
               ¿Eliminar <strong>“{confirmDelete.descripcion}”</strong> por{" "}
-              {formatMoney(confirmDelete.monto, moneda)}? Esta acción no se puede
+              {formatMoney(confirmDelete.monto, confirmDelete.moneda)}? Esta acción no se puede
               deshacer.
             </p>
             <div className="flex justify-end gap-2">

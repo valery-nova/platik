@@ -33,6 +33,7 @@ import {
   ultimasTransacciones,
 } from "@/lib/finance";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
+import { hoyISO } from "@/lib/finance";
 
 function KpiCard({
   titulo,
@@ -82,17 +83,18 @@ export default function DashboardPage() {
   const usdcConfirmado = aportesConfirmados.reduce((s, a) => s + a.importe, 0);
 
   const ultimos30 = txInRange(transactions, haceDiasISO(29));
-  const ingresos = totalByType(ultimos30, "ingreso");
-  const egresos = totalEgresos(ultimos30);
-  const neta = gananciaNeta(ultimos30);
-  const margen = margenGanancia(ultimos30);
-  const serie = serieMensual(transactions, 6);
+  const ingresos = totalByType(ultimos30, "ingreso", moneda);
+  const egresos = totalEgresos(ultimos30, moneda);
+  const neta = gananciaNeta(ultimos30, moneda);
+  const margen = margenGanancia(ultimos30, moneda);
+  const serie = serieMensual(transactions, 6, hoyISO(), moneda);
   const ultimas = ultimasTransacciones(transactions, 6);
 
+  const ganancia = neta.ganancia;
   const distribucion = [
-    { nombre: "Operación", valor: Math.max(0, (neta * distribution.operacion) / 100) },
-    { nombre: "Reinversión", valor: Math.max(0, (neta * distribution.reinversion) / 100) },
-    { nombre: "Ahorro", valor: Math.max(0, (neta * distribution.ahorro) / 100) },
+    { nombre: "Operación", valor: Math.max(0, (ganancia * distribution.operacion) / 100) },
+    { nombre: "Reinversión", valor: Math.max(0, (ganancia * distribution.reinversion) / 100) },
+    { nombre: "Ahorro", valor: Math.max(0, (ganancia * distribution.ahorro) / 100) },
   ];
 
   return (
@@ -114,33 +116,44 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           titulo="Ingresos"
-          valor={formatMoney(ingresos, moneda)}
+          valor={formatMoney(ingresos.total, moneda)}
           detalle="últimos 30 días"
           icon={<ArrowUpRight size={20} />}
           tone="menta"
         />
         <KpiCard
           titulo="Gastos y costos"
-          valor={formatMoney(egresos, moneda)}
+          valor={formatMoney(egresos.total, moneda)}
           detalle="últimos 30 días"
           icon={<ArrowDownRight size={20} />}
           tone="coral"
         />
         <KpiCard
           titulo="Ganancia neta estimada"
-          valor={formatMoney(neta, moneda)}
-          detalle={neta >= 0 ? "tu negocio va en positivo" : "revisa tus egresos"}
+          valor={formatMoney(ganancia, moneda)}
+          detalle={ganancia >= 0 ? "tu negocio va en positivo" : "revisa tus egresos"}
           icon={<Wallet size={20} />}
           tone="petroleo"
         />
         <KpiCard
           titulo="Rentabilidad"
-          valor={formatPct(margen)}
-          detalle="ganancia por cada Bs 100 vendidos"
+          valor={formatPct(margen ?? 0)}
+          detalle={`ganancia por cada ${moneda} 100 vendidos`}
           icon={<TrendingUp size={20} />}
           tone="lavanda"
         />
       </div>
+
+      {/* Aviso de movimientos pendientes de conversión */}
+      {neta.pendientes > 0 && (
+        <Card className="border-lavanda-300 bg-lavanda-50 p-4">
+          <p className="text-sm text-petroleo">
+            <strong>{neta.pendientes}</strong> movimiento(s) en otra moneda aún no
+            tienen cotización válida y no se incluyen en los totales. Se
+            conservan con su importe original; no inventamos equivalencias.
+          </p>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Gráfico principal */}
@@ -166,7 +179,7 @@ export default function DashboardPage() {
             title="Distribución del dinero"
             subtitle="Propuesta editable sobre tu ganancia"
           />
-          {neta > 0 ? (
+          {ganancia > 0 ? (
             <>
               <DistribucionChart items={distribucion} moneda={moneda} />
               <p className="mt-2 text-center text-xs text-tinta-suave">
@@ -235,7 +248,10 @@ export default function DashboardPage() {
                     }`}
                   >
                     {t.tipo === "ingreso" ? "+" : "−"}
-                    {formatMoney(t.monto, moneda)}
+                    {formatMoney(t.monto, t.moneda)}
+                    {t.moneda !== moneda && (
+                      <span className="ml-1 text-[10px] text-tinta-suave">({t.moneda})</span>
+                    )}
                   </p>
                   <Badge tone={t.tipo === "ingreso" ? "menta" : "coral"}>
                     {TIPO_LABEL[t.tipo]}
@@ -275,8 +291,8 @@ export default function DashboardPage() {
                   </div>
                   <ProgressBar value={pct} tone="lavanda" />
                   <p className="mt-1 text-xs text-tinta-suave">
-                    {formatMoney(g.ahorroAcumulado, moneda)} de{" "}
-                    {formatMoney(g.montoObjetivo, moneda)}
+                    {formatMoney(g.ahorroAcumulado, g.moneda)} de{" "}
+                    {formatMoney(g.montoObjetivo, g.moneda)}
                   </p>
                 </div>
               );

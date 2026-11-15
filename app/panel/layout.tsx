@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/shell";
+import { OnboardingMoneda } from "@/components/onboarding";
 import { PlatikProvider } from "@/lib/store";
 
 export default function PanelLayout({
@@ -9,6 +10,7 @@ export default function PanelLayout({
   return (
     <PlatikProvider>
       <AppShell>{children}</AppShell>
+      <OnboardingMoneda />
     </PlatikProvider>
   );
 }

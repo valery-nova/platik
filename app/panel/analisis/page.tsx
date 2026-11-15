@@ -14,6 +14,7 @@ import {
   totalesPorCategoria,
   txInRange,
   haceDiasISO,
+  hoyISO,
 } from "@/lib/finance";
 import { formatMoney, formatPct } from "@/lib/format";
 
@@ -28,21 +29,24 @@ export default function AnalisisPage() {
   const ultimos30 = txInRange(txs, haceDiasISO(29));
   const previos30 = txInRange(txs, haceDiasISO(59), haceDiasISO(30));
 
-  const ingresos = totalByType(ultimos30, "ingreso");
-  const costos = totalByType(ultimos30, "costo");
-  const gastos = totalByType(ultimos30, "gasto");
-  const egresos = totalEgresos(ultimos30);
-  const neta = gananciaNeta(ultimos30);
-  const margen = margenGanancia(ultimos30);
+  const ingresos = totalByType(ultimos30, "ingreso", moneda);
+  const costos = totalByType(ultimos30, "costo", moneda);
+  const gastos = totalByType(ultimos30, "gasto", moneda);
+  const egresos = totalEgresos(ultimos30, moneda);
+  const neta = gananciaNeta(ultimos30, moneda);
+  const margen = margenGanancia(ultimos30, moneda);
+  const gananciaNetaValor = neta.ganancia;
 
-  const ingresosPrev = totalByType(previos30, "ingreso");
+  const ingresosPrev = totalByType(previos30, "ingreso", moneda);
   const variacionIngresos =
-    ingresosPrev > 0 ? ((ingresos - ingresosPrev) / ingresosPrev) * 100 : 0;
+    ingresosPrev.total > 0
+      ? ((ingresos.total - ingresosPrev.total) / ingresosPrev.total) * 100
+      : 0;
 
-  const serie = serieMensual(txs, 6);
-  const topGastos = totalesPorCategoria(ultimos30, ["gasto", "costo"]);
+  const serie = serieMensual(txs, 6, hoyISO(), moneda);
+  const topGastos = totalesPorCategoria(ultimos30, moneda, ["gasto", "costo"]);
   const mayorGasto = topGastos[0];
-  const topIngresos = totalesPorCategoria(ultimos30, ["ingreso"])[0];
+  const topIngresos = totalesPorCategoria(ultimos30, moneda, ["ingreso"])[0];
 
   // El gráfico muestra las 5 categorías mayores y agrupa el resto en
   // "Otros" para que la distribución sume 100% como la lista.
@@ -66,13 +70,13 @@ export default function AnalisisPage() {
     explicaciones.push(
       "No hay movimientos en los últimos 30 días. Registra transacciones en la pestaña Transacciones para ver aquí qué pasa con tu dinero.",
     );
-  } else if (neta >= 0) {
+  } else if (gananciaNetaValor >= 0) {
     explicaciones.push(
-      `En los últimos 30 días tu negocio generó ${formatMoney(neta, moneda)} de ganancia estimada: de cada Bs 100 que entraron, te quedaron aproximadamente Bs ${Math.round(margen)}.`,
+      `En los últimos 30 días tu negocio generó ${formatMoney(gananciaNetaValor, moneda)} de ganancia estimada: de cada ${moneda} 100 que entraron, te quedaron aproximadamente ${moneda} ${Math.round(margen ?? 0)}.`,
     );
   } else {
     explicaciones.push(
-      `En los últimos 30 días tus egresos superaron a tus ingresos por ${formatMoney(Math.abs(neta), moneda)}. Revisa los gastos más grandes para recuperar el equilibrio.`,
+      `En los últimos 30 días tus egresos superaron a tus ingresos por ${formatMoney(Math.abs(gananciaNetaValor), moneda)}. Revisa los gastos más grandes para recuperar el equilibrio.`,
     );
   }
   if (topIngresos) {
@@ -85,7 +89,7 @@ export default function AnalisisPage() {
       `El egreso más grande fue “${mayorGasto.categoria}” con ${formatMoney(mayorGasto.total, moneda)} (${formatPct(mayorGasto.porcentaje, 0)} de lo que sale).`,
     );
   }
-  if (ingresosPrev > 0) {
+  if (ingresosPrev.total > 0) {
     explicaciones.push(
       variacionIngresos >= 0
         ? `Tus ingresos crecieron ${formatPct(Math.abs(variacionIngresos))} respecto al periodo anterior.`
@@ -112,27 +116,27 @@ export default function AnalisisPage() {
         {[
           {
             titulo: "Ingresos totales",
-            valor: formatMoney(ingresos, moneda),
+            valor: formatMoney(ingresos.total, moneda),
             icon: <TrendingUp size={18} />,
             cls: "text-menta-700",
           },
           {
             titulo: "Costos + gastos",
-            valor: formatMoney(egresos, moneda),
-            sub: `costos ${formatMoney(costos, moneda)} · gastos ${formatMoney(gastos, moneda)}`,
+            valor: formatMoney(egresos.total, moneda),
+            sub: `costos ${formatMoney(costos.total, moneda)} · gastos ${formatMoney(gastos.total, moneda)}`,
             icon: <TrendingDown size={18} />,
             cls: "text-coral-600",
           },
           {
             titulo: "Ganancia neta estimada",
-            valor: formatMoney(neta, moneda),
-            icon: neta >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />,
-            cls: neta >= 0 ? "text-menta-700" : "text-coral-600",
+            valor: formatMoney(gananciaNetaValor, moneda),
+            icon: gananciaNetaValor >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />,
+            cls: gananciaNetaValor >= 0 ? "text-menta-700" : "text-coral-600",
           },
           {
             titulo: "Margen de ganancia",
-            valor: formatPct(margen),
-            sub: margen >= 25 ? "margen saludable" : "margen ajustado",
+            valor: formatPct(margen ?? 0),
+            sub: (margen ?? 0) >= 25 ? "margen saludable" : "margen ajustado",
             icon: <Info size={18} />,
             cls: "text-petroleo",
           },

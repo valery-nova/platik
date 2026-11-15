@@ -16,7 +16,13 @@ import {
 import { usePlatik } from "@/lib/store";
 import { buildDemoData } from "@/lib/demo-data";
 import { formatMoney } from "@/lib/format";
-import type { Currency } from "@/lib/types";
+import {
+  countryName,
+  currencyName,
+  listCountries,
+  listCurrencies,
+  suggestedCurrenciesForCountry,
+} from "@/lib/currency/catalog";
 import { excedenteEstimado, haceDiasISO, txInRange } from "@/lib/finance";
 
 export default function PerfilPage() {
@@ -44,7 +50,11 @@ export default function PerfilPage() {
   if (!hydrated) return <PanelSkeleton />;
 
   const sumaDist = dist.operacion + dist.reinversion + dist.ahorro;
-  const excedente = excedenteEstimado(txInRange(data.transactions, haceDiasISO(29)));
+  const excedente = excedenteEstimado(
+    txInRange(data.transactions, haceDiasISO(29)),
+    data.distribution,
+    data.profile.moneda,
+  );
 
   function notify(msg: string) {
     setAviso(msg);
@@ -106,19 +116,75 @@ export default function PerfilPage() {
                 required
               />
             </Field>
-            <Field
-              label="Moneda principal"
-              hint="Los montos registrados se muestran en esta moneda, sin conversión. USD y USDC llegarán con soporte de tipo de cambio en fases posteriores."
-            >
+            <Field label="País" hint="Opcional: sugiere la moneda local, sin limitarte a ella.">
               <Select
-                value={form.moneda}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, moneda: e.target.value as Currency }))
-                }
+                value={form.countryCode ?? ""}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  setForm((f) => {
+                    const next = { ...f, countryCode: code || undefined };
+                    if (code && !f.currencyPreference) {
+                      const suggested = suggestedCurrenciesForCountry(code)[0];
+                      if (suggested) next.moneda = suggested;
+                    }
+                    return next;
+                  });
+                }}
               >
-                <option value="BOB">Bolivianos (BOB)</option>
+                <option value="">Sin especificar</option>
+                {listCountries().map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {countryName(c.code)} ({c.code})
+                  </option>
+                ))}
               </Select>
             </Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Moneda principal"
+                hint="Todos los cálculos se hacen en esta moneda. Puedes cambiarla cuando quieras."
+              >
+                <Select
+                  value={form.moneda}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      moneda: e.target.value,
+                      currencyPreference: "custom",
+                    }))
+                  }
+                >
+                  {listCurrencies().map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code} · {currencyName(c.code)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field
+                label="Moneda de visualización"
+                hint="Opcional: solo cambia cómo se muestran los montos, nunca los valores."
+              >
+                <Select
+                  value={form.displayCurrency ?? ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      displayCurrency: e.target.value || undefined,
+                    }))
+                  }
+                >
+                  <option value="">Igual que la principal</option>
+                  {listCurrencies()
+                    .filter((c) => c.code !== form.moneda)
+                    .map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} · {currencyName(c.code)}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+            </div>
             <div className="flex justify-end">
               <Button type="submit" variant="accent">
                 <Check size={15} /> Guardar perfil
@@ -155,7 +221,7 @@ export default function PerfilPage() {
                   />
                   <span className="text-sm text-tinta-suave">%</span>
                   <span className="ml-auto text-sm font-medium text-petroleo">
-                    ≈ {formatMoney((excedente * dist[key]) / 100, data.profile.moneda)}
+                    ≈ {formatMoney(excedente[key], data.profile.moneda)}
                   </span>
                 </div>
               </Field>

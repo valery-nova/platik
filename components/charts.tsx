@@ -15,9 +15,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { MesSerie } from "@/lib/finance";
+import type { PuntoMensual } from "@/lib/finance";
 import { formatMoney, nombreMes } from "@/lib/format";
-import type { Currency } from "@/lib/types";
 
 const PETROLEO = "#0b3d3b";
 const MENTA = "#35b183";
@@ -34,7 +33,7 @@ function MoneyTooltip({
   active?: boolean;
   payload?: { name: string; value: number; color?: string }[];
   label?: string;
-  moneda: Currency;
+  moneda: string;
 }) {
   if (!active || !payload?.length) return null;
   return (
@@ -60,8 +59,8 @@ export function IngresosEgresosChart({
   serie,
   moneda,
 }: {
-  serie: MesSerie[];
-  moneda: Currency;
+  serie: PuntoMensual[];
+  moneda: string;
 }) {
   const data = serie.map((s) => ({
     mes: nombreMes(s.mes),
@@ -97,8 +96,8 @@ export function EvolucionChart({
   serie,
   moneda,
 }: {
-  serie: MesSerie[];
-  moneda: Currency;
+  serie: PuntoMensual[];
+  moneda: string;
 }) {
   const data = serie.map((s) => ({
     mes: nombreMes(s.mes),
@@ -150,7 +149,7 @@ export function DistribucionChart({
   moneda,
 }: {
   items: { nombre: string; valor: number }[];
-  moneda: Currency;
+  moneda: string;
 }) {
   return (
     <ResponsiveContainer width="100%" height={240}>
