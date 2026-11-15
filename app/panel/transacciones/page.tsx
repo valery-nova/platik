@@ -25,7 +25,7 @@ import { usePlatik } from "@/lib/store";
 import { CATEGORIAS } from "@/lib/categories";
 import { hoyISO } from "@/lib/finance";
 import { formatFecha, formatMoney } from "@/lib/format";
-import { currencyDigits, currencyName, listCurrencies } from "@/lib/currency/catalog";
+import { currencyDigits, currencyName, currencyStep, listCurrencies } from "@/lib/currency/catalog";
 import { roundToCurrency } from "@/lib/currency/decimal";
 import {
   buildConversionFields,
@@ -89,6 +89,9 @@ function TransactionForm({
   const valido =
     Number.isFinite(montoNum) &&
     montoNum > 0 &&
+    // Debe seguir siendo > 0 tras redondear a los decimales ISO de la moneda
+    // (p. ej. 0.10 JPY se redondea a 0 y no es un movimiento válido).
+    roundToCurrency(montoNum, currencyDigits(form.moneda)) > 0 &&
     form.descripcion.trim().length >= 2 &&
     Boolean(form.fecha);
 
@@ -96,7 +99,7 @@ function TransactionForm({
     e.preventDefault();
     if (!valido) {
       setError(
-        "Revisa los datos: el monto debe ser mayor a 0 y la descripción no puede estar vacía.",
+        "Revisa los datos: el monto debe ser válido para la moneda elegida, la descripción no puede estar vacía y la fecha es obligatoria.",
       );
       return;
     }
@@ -132,7 +135,7 @@ function TransactionForm({
           <Input
             type="number"
             min="0"
-            step="0.01"
+            step={currencyStep(form.moneda)}
             inputMode="decimal"
             placeholder="0.00"
             value={form.monto}
