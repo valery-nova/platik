@@ -36,6 +36,17 @@ export function currencyDigits(code: string): number {
   return CURRENCIES_BY_CODE.get(code.toUpperCase())?.digits ?? 2;
 }
 
+/**
+ * Paso mínimo de un input numérico para la moneda ("0.01", "0.001", "1"…)
+ * según sus decimales ISO. Evita que el navegador rechace importes válidos
+ * de monedas con 3 o 4 decimales o exija centavos en monedas sin ellos.
+ */
+export function currencyStep(code: string): string {
+  const d = currencyDigits(code);
+  if (d <= 0) return "1";
+  return `0.${"0".repeat(d - 1)}1`;
+}
+
 /** Todas las monedas del catálogo, ordenadas por código. */
 export function listCurrencies(): CurrencyInfo[] {
   return CURRENCY_CATALOG;

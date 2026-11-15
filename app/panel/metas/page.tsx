@@ -17,7 +17,7 @@ import {
 } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
-import { currencyDigits, listCurrencies } from "@/lib/currency/catalog";
+import { currencyDigits, currencyStep, listCurrencies } from "@/lib/currency/catalog";
 import { roundToCurrency } from "@/lib/currency/decimal";
 import type { Goal } from "@/lib/types";
 import { StellarAhorro } from "@/components/stellar-ahorro";
@@ -32,11 +32,14 @@ interface GoalFormState {
 function GoalForm({
   initial,
   submitLabel,
+  monedaFija = false,
   onSubmit,
   onCancel,
 }: {
   initial: GoalFormState;
   submitLabel: string;
+  /** true cuando la meta ya tiene ahorro: su moneda no puede cambiarse sin conversión. */
+  monedaFija?: boolean;
   onSubmit: (f: GoalFormState) => void;
   onCancel: () => void;
 }) {
@@ -44,7 +47,13 @@ function GoalForm({
   const [error, setError] = useState("");
 
   const monto = Number(form.montoObjetivo);
-  const valido = Number.isFinite(monto) && monto > 0 && form.nombre.trim().length >= 2;
+  const valido =
+    Number.isFinite(monto) &&
+    monto > 0 &&
+    // El importe debe seguir siendo > 0 tras redondear a los decimales ISO
+    // de la moneda (p. ej. 0.10 JPY se redondea a 0 y no es válido).
+    roundToCurrency(monto, currencyDigits(form.moneda)) > 0 &&
+    form.nombre.trim().length >= 2;
 
   return (
     <form
@@ -52,7 +61,7 @@ function GoalForm({
       onSubmit={(e) => {
         e.preventDefault();
         if (!valido) {
-          setError("Ponle un nombre a tu meta y un monto objetivo mayor a 0.");
+          setError("Revisa los datos: el monto debe ser válido para la moneda elegida y la meta necesita un nombre.");
           return;
         }
         onSubmit(form);
@@ -72,7 +81,7 @@ function GoalForm({
           <Input
             type="number"
             min="0"
-            step="0.01"
+            step={currencyStep(form.moneda)}
             placeholder="0.00"
             value={form.montoObjetivo}
             onChange={(e) =>
@@ -86,6 +95,7 @@ function GoalForm({
             value={form.moneda}
             onChange={(e) => setForm((f) => ({ ...f, moneda: e.target.value }))}
             aria-label="Moneda de la meta"
+            disabled={monedaFija}
           >
             {listCurrencies().map((c) => (
               <option key={c.code} value={c.code}>
@@ -93,6 +103,12 @@ function GoalForm({
               </option>
             ))}
           </Select>
+          {monedaFija && (
+            <p className="mt-1 text-xs text-tinta-suave">
+              La meta ya tiene ahorro en {form.moneda}: su moneda no se puede
+              cambiar sin una conversión válida.
+            </p>
+          )}
         </Field>
       </div>
       <div>
@@ -269,6 +285,7 @@ export default function MetasPage() {
         {modal !== null && (
           <GoalForm
             key={modal === "nueva" ? "nueva" : modal.id}
+            monedaFija={modal !== "nueva" && modal.ahorroAcumulado > 0}
             initial={
               modal === "nueva"
                 ? { nombre: "", montoObjetivo: "", moneda: moneda, fechaObjetivo: "" }
@@ -296,7 +313,9 @@ export default function MetasPage() {
                   ...modal,
                   nombre: f.nombre.trim(),
                   montoObjetivo: roundToCurrency(Number(f.montoObjetivo), currencyDigits(f.moneda)),
-                  moneda: f.moneda,
+                  // Con ahorro acumulado la moneda queda fijada: cambiarla
+                  // sin conversión válida reinterpretaría el saldo.
+                  moneda: modal.ahorroAcumulado > 0 ? modal.moneda : f.moneda,
                   fechaObjetivo: f.fechaObjetivo || undefined,
                 });
                 notify("Meta actualizada.");
@@ -319,7 +338,10 @@ export default function MetasPage() {
             onSubmit={(e) => {
               e.preventDefault();
               const monto = roundToCurrency(Number(montoAporte), currencyDigits(aporteGoal.moneda));
-              if (!Number.isFinite(monto) || monto <= 0) return;
+              if (!Number.isFinite(monto) || monto <= 0) {
+                notify(`El aporte debe ser mayor a 0 en ${aporteGoal.moneda}.`);
+                return;
+              }
               addAporte(aporteGoal.id, monto);
               setAporteGoal(null);
               notify(`Aporte de ${formatMoney(monto, aporteGoal.moneda)} registrado.`);
@@ -333,7 +355,7 @@ export default function MetasPage() {
               <Input
                 type="number"
                 min="0"
-                step="0.01"
+                step={currencyStep(aporteGoal.moneda)}
                 placeholder="0.00"
                 value={montoAporte}
                 onChange={(e) => setMontoAporte(e.target.value)}
