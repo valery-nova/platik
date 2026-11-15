@@ -111,6 +111,19 @@ export default function AnalisisPage() {
         <DemoBadge />
       </div>
 
+      {/* Aviso de movimientos pendientes de conversión: los totales son
+          parciales y no deben presentarse como el periodo completo. */}
+      {neta.pendientes > 0 && (
+        <Card className="border-lavanda-300 bg-lavanda-50 p-4">
+          <p className="text-sm text-petroleo">
+            <strong>{neta.pendientes}</strong> movimiento(s) en otra moneda aún
+            no tienen cotización válida y <strong>no se incluyen</strong> en los
+            totales ni en las explicaciones de abajo. Se conservan con su
+            importe original; no inventamos equivalencias.
+          </p>
+        </Card>
+      )}
+
       {/* KPIs del periodo */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
