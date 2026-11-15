@@ -37,22 +37,25 @@ export default function PerfilPage() {
   const [form, setForm] = useState(data.profile);
   const [dist, setDist] = useState(data.distribution);
   const [aviso, setAviso] = useState("");
-  const [sincronizado, setSincronizado] = useState(false);
 
-  // Ajuste de estado durante el render: una vez hidratados los datos,
-  // copiamos el perfil guardado a los formularios una sola vez.
-  if (hydrated && !sincronizado) {
+  // Ajuste de estado durante el render: cuando el perfil o la distribución
+  // guardados cambian (hidratación, onboarding completado, restablecer
+  // demo), los formularios se resincronizan. Sin esto, un guardado
+  // posterior podría revertir una configuración recién hecha.
+  const [prev, setPrev] = useState({ profile: data.profile, distribution: data.distribution });
+  if (prev.profile !== data.profile || prev.distribution !== data.distribution) {
+    setPrev({ profile: data.profile, distribution: data.distribution });
     setForm(data.profile);
     setDist(data.distribution);
-    setSincronizado(true);
   }
 
   if (!hydrated) return <PanelSkeleton />;
 
   const sumaDist = dist.operacion + dist.reinversion + dist.ahorro;
+  // La vista previa usa los porcentajes en edición (dist), no los guardados.
   const excedente = excedenteEstimado(
     txInRange(data.transactions, haceDiasISO(29)),
-    data.distribution,
+    dist,
     data.profile.moneda,
   );
 
