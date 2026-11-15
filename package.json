@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsc -p tsconfig.test.json && node --test .tmp-tests/tests/*.test.js"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^17.4.0",
