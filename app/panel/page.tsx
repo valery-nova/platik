@@ -38,6 +38,11 @@ import {
 } from "@/lib/finance";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
 import { hoyISO } from "@/lib/finance";
+import {
+  CATEGORIAS_DISTRIBUCION,
+  diagnostico,
+  montosDistribucion,
+} from "@/lib/insights";
 
 function KpiCard({
   titulo,
@@ -99,11 +104,23 @@ export default function DashboardPage() {
   const mostrarEquivalencia =
     !!displayMoneda && displayMoneda !== moneda.toUpperCase();
   const totalIngresos6m = serie.reduce((a, s) => a + s.ingresos, 0);
-  const distribucion = [
-    { nombre: "Operación", valor: Math.max(0, (ganancia * distribution.operacion) / 100) },
-    { nombre: "Reinversión", valor: Math.max(0, (ganancia * distribution.reinversion) / 100) },
-    { nombre: "Ahorro", valor: Math.max(0, (ganancia * distribution.ahorro) / 100) },
-  ];
+  // La distribución se aplica al dinero disponible (excedente del período),
+  // no a los ingresos brutos; si no se puede determinar, no se reparte.
+  const { disponible, hallazgos } = diagnostico(
+    transactions,
+    moneda,
+    { desde: haceDiasISO(29), hasta: hoyISO() },
+    { desde: haceDiasISO(59), hasta: haceDiasISO(30) },
+  );
+  const montos =
+    disponible.monto !== null && disponible.monto > 0
+      ? montosDistribucion(distribution, disponible.monto, moneda)
+      : null;
+  const distribucion = montos
+    ? CATEGORIAS_DISTRIBUCION.map((c) => ({ nombre: c.nombre, valor: montos[c.key] })).concat(
+        montos.sinAsignar > 0 ? [{ nombre: "Sin asignar", valor: montos.sinAsignar }] : [],
+      )
+    : [];
 
   return (
     <div className="space-y-6 pb-10">
@@ -145,8 +162,12 @@ export default function DashboardPage() {
         />
         <KpiCard
           titulo="Rentabilidad"
-          valor={formatPct(margen ?? 0)}
-          detalle={`ganancia por cada ${moneda} 100 vendidos`}
+          valor={margen === null ? "—" : formatPct(margen)}
+          detalle={
+            margen === null
+              ? "sin ingresos en el periodo"
+              : `ganancia por cada ${moneda} 100 vendidos`
+          }
           icon={<TrendingUp size={20} />}
           tone="lavanda"
         />
@@ -163,6 +184,43 @@ export default function DashboardPage() {
             </p>
             <BotonActualizarCotizaciones />
           </div>
+        </Card>
+      )}
+
+      {/* Lo más importante: hallazgos deterministas del período */}
+      {hallazgos.length > 0 && (
+        <Card className="p-5">
+          <CardHeader
+            title="Lo más importante"
+            subtitle="Lecturas calculadas con tus movimientos de los últimos 30 días"
+            action={
+              <Link
+                href="/panel/analisis"
+                className="inline-flex items-center gap-1 text-sm font-medium text-menta-700 hover:underline"
+              >
+                Ver detalle <ArrowRight size={14} />
+              </Link>
+            }
+          />
+          <ul className="space-y-2">
+            {hallazgos.slice(0, 3).map((h) => (
+              <li key={h.id} className="flex gap-2.5 text-sm text-tinta">
+                <span
+                  aria-hidden
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    h.tono === "positivo"
+                      ? "bg-menta-600"
+                      : h.tono === "alerta"
+                        ? "bg-coral-600"
+                        : h.tono === "info"
+                          ? "bg-lavanda-600"
+                          : "bg-petroleo"
+                  }`}
+                />
+                {h.texto}
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 
@@ -228,20 +286,31 @@ export default function DashboardPage() {
         <Card className="p-5">
           <CardHeader
             title="Distribución del dinero"
-            subtitle="Propuesta editable sobre tu ganancia"
+            subtitle="Tu reparto del excedente de 30 días (editable)"
           />
-          {ganancia > 0 ? (
+          {montos && disponible.monto !== null ? (
             <>
+              <p className="mb-1 text-center text-xs text-tinta-suave">
+                Dinero disponible:{" "}
+                <strong className="text-petroleo">
+                  {formatMoney(disponible.monto, moneda)}
+                </strong>
+                {disponible.estado === "parcial" && " (estimación conservadora)"}
+              </p>
               <DistribucionChart items={distribucion} moneda={moneda} />
               <p className="mt-2 text-center text-xs text-tinta-suave">
-                {distribution.operacion}% operación · {distribution.reinversion}%
-                reinversión · {distribution.ahorro}% ahorro
+                {distribution.operacion}% capital operativo · {distribution.reinversion}%
+                reinversión · {distribution.ahorro}% ahorro para metas
               </p>
             </>
           ) : (
             <EmptyState
-              title="Sin ganancia en el periodo"
-              description="Cuando tus ingresos superen a los egresos verás aquí cómo distribuir el excedente."
+              title={
+                disponible.monto === null
+                  ? "Dinero disponible no determinable"
+                  : "Sin dinero disponible en el periodo"
+              }
+              description={disponible.motivo}
               mascot="analiza"
             />
           )}
