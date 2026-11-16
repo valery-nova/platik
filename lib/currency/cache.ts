@@ -26,6 +26,17 @@ export const POSITIVE_TTL_MS = 6 * 60 * 60 * 1000;
 /** 10 min: no insistir con pares sin cobertura en cada render. */
 export const NEGATIVE_TTL_MS = 10 * 60 * 1000;
 
+const RATE_TYPES = new Set(["reference", "mid", "buy", "sell", "executable"]);
+const RATE_STATUSES = new Set(["valid", "expired", "unavailable"]);
+
+function esFechaIso(v: unknown): v is string {
+  return typeof v === "string" && !Number.isNaN(Date.parse(v));
+}
+
+function esListaDeTextos(v: unknown): v is string[] {
+  return Array.isArray(v) && v.every((s) => typeof s === "string");
+}
+
 function storageAvailable(): Storage | null {
   try {
     if (typeof localStorage === "undefined") return null;
@@ -43,14 +54,78 @@ export class RateCache {
     private readonly now: () => number = () => Date.now(),
   ) {}
 
+  /**
+   * Validación estructural completa de una cotización recuperada del
+   * almacenamiento. Cualquier desviación (tipos, fechas inválidas,
+   * estado desconocido, propiedades ausentes) descarta la entrada sin
+   * lanzar errores: el par simplemente se vuelve a consultar.
+   */
+  private static isValidQuote(q: unknown): q is ExchangeRateQuote {
+    if (!q || typeof q !== "object") return false;
+    const o = q as Record<string, unknown>;
+    if (typeof o.from !== "string" || o.from.length === 0) return false;
+    if (typeof o.to !== "string" || o.to.length === 0) return false;
+    if (typeof o.rate !== "number" || !Number.isFinite(o.rate) || o.rate <= 0) {
+      return false;
+    }
+    if (typeof o.provider !== "string" || o.provider.length === 0) return false;
+    if (typeof o.providerName !== "string" || o.providerName.length === 0) {
+      return false;
+    }
+    if (!esFechaIso(o.fetchedAt)) return false;
+    if (o.publishedAt !== undefined && !esFechaIso(o.publishedAt)) return false;
+    if (o.validUntil !== undefined && !esFechaIso(o.validUntil)) return false;
+    if (o.rateType !== undefined && !RATE_TYPES.has(o.rateType as string)) {
+      return false;
+    }
+    if (!RATE_STATUSES.has(o.status as string)) return false;
+    if (o.viaCurrency !== undefined && typeof o.viaCurrency !== "string") {
+      return false;
+    }
+    if (o.underlyingProviders !== undefined && !esListaDeTextos(o.underlyingProviders)) {
+      return false;
+    }
+    if (o.legs !== undefined) {
+      if (!Array.isArray(o.legs)) return false;
+      for (const leg of o.legs) {
+        if (!leg || typeof leg !== "object") return false;
+        const l = leg as Record<string, unknown>;
+        if (typeof l.from !== "string" || l.from.length === 0) return false;
+        if (typeof l.to !== "string" || l.to.length === 0) return false;
+        if (typeof l.rate !== "number" || !Number.isFinite(l.rate) || l.rate <= 0) {
+          return false;
+        }
+        if (typeof l.provider !== "string" || l.provider.length === 0) return false;
+        if (typeof l.providerName !== "string" || l.providerName.length === 0) {
+          return false;
+        }
+        if (l.publishedAt !== undefined && !esFechaIso(l.publishedAt)) return false;
+        if (
+          l.underlyingProviders !== undefined &&
+          !esListaDeTextos(l.underlyingProviders)
+        ) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
   private static isEntry(x: unknown): x is CacheEntry {
     if (!x || typeof x !== "object") return false;
     const e = x as Partial<CacheEntry>;
-    return (
-      typeof e.savedAt === "string" &&
-      typeof e.ttlMs === "number" &&
-      (e.quote === null || (typeof e.quote === "object" && e.quote !== null))
-    );
+    // savedAt debe ser una fecha parseable: con NaN la comparación de TTL
+    // nunca expiraría y la entrada quedaría válida para siempre.
+    if (!esFechaIso(e.savedAt)) return false;
+    if (
+      typeof e.ttlMs !== "number" ||
+      !Number.isFinite(e.ttlMs) ||
+      e.ttlMs <= 0
+    ) {
+      return false;
+    }
+    if (e.quote === null) return true;
+    return RateCache.isValidQuote(e.quote);
   }
 
   private loadStorage(): Record<string, CacheEntry> {
@@ -94,7 +169,11 @@ export class RateCache {
         entry = stored;
       }
     }
-    if (!entry) return null;
+    if (!RateCache.isEntry(entry)) {
+      // Entrada corrupta: se descarta sin errores ni efectos en los datos.
+      this.memory.delete(key);
+      return null;
+    }
     if (t - Date.parse(entry.savedAt) >= entry.ttlMs) {
       this.memory.delete(key);
       return null;
@@ -103,10 +182,13 @@ export class RateCache {
   }
 
   set(key: string, quote: ExchangeRateQuote | null) {
+    // Defensa en profundidad: nunca se cachea una cotización que no
+    // superaría la validación de recuperación.
+    const seguro = quote !== null && !RateCache.isValidQuote(quote) ? null : quote;
     const entry: CacheEntry = {
-      quote,
+      quote: seguro,
       savedAt: new Date(this.now()).toISOString(),
-      ttlMs: quote ? POSITIVE_TTL_MS : NEGATIVE_TTL_MS,
+      ttlMs: seguro ? POSITIVE_TTL_MS : NEGATIVE_TTL_MS,
     };
     this.memory.set(key, entry);
     this.saveStorage();

@@ -29,6 +29,12 @@ export interface ExchangeRateLeg {
   provider: string;
   providerName: string;
   publishedAt?: string;
+  /**
+   * Fuentes subyacentes que el agregador declara para esta pata
+   * (ej. ["BCBO"]). Solo se copian las devueltas por el proveedor;
+   * nunca se infieren ni se completan.
+   */
+  underlyingProviders?: string[];
 }
 
 export interface ExchangeRateQuote {

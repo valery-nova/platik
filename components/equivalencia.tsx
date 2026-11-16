@@ -65,6 +65,18 @@ const TIPO_TASA_LABEL: Record<RateType, string> = {
   executable: "Ejecutable",
 };
 
+/** Días UTC de antigüedad de una fecha ISO (fecha o fecha-hora). */
+function diasAntiguedad(iso?: string): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
+  if (Number.isNaN(t)) return null;
+  const ahora = new Date();
+  const hoy = Date.UTC(ahora.getUTCFullYear(), ahora.getUTCMonth(), ahora.getUTCDate());
+  const d = new Date(t);
+  const fecha = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return Math.max(0, Math.floor((hoy - fecha) / 86400000));
+}
+
 function formatoFechaHora(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
@@ -112,7 +124,7 @@ function DetalleCotizacion({
           <dt className="text-tinta-suave">Fuente</dt>
           <dd className="text-right font-medium text-tinta">
             {quote.providerName}
-            {quote.underlyingProviders && quote.underlyingProviders.length > 0 && (
+            {!quote.legs && quote.underlyingProviders && quote.underlyingProviders.length > 0 && (
               <span className="block text-xs font-normal text-tinta-suave">
                 Origen: {quote.underlyingProviders.join(", ")}
               </span>
@@ -131,16 +143,42 @@ function DetalleCotizacion({
         </div>
         <div className="flex justify-between gap-3">
           <dt className="text-tinta-suave">Estado</dt>
-          <dd className="font-medium text-tinta">
+          <dd className="text-right font-medium text-tinta">
             {freshness === "anterior_vigente"
-              ? "Último valor publicado (último día hábil)"
+              ? `Último valor publicado (hace ${diasAntiguedad(quote.publishedAt ?? quote.fetchedAt) ?? "varios"} día(s); último día hábil)`
               : "Cotización vigente"}
           </dd>
         </div>
       </dl>
+      {quote.legs && quote.legs.length > 0 && (
+        <div className="mt-3 rounded-xl bg-menta-50/60 px-3 py-2.5 text-xs text-tinta">
+          <p className="mb-1 font-semibold text-petroleo">
+            Trazabilidad (tasa cruzada vía {quote.viaCurrency ?? "moneda pivote"}):
+            cada pata puede proceder de una fuente oficial distinta.
+          </p>
+          <ul className="space-y-1">
+            {quote.legs.map((l, i) => (
+              <li key={i}>
+                <span className="font-medium">
+                  {l.from} → {l.to}
+                </span>{" "}
+                · {l.rate} · {l.providerName}
+                {l.publishedAt && ` · dato del ${formatFecha(l.publishedAt)}`}
+                {l.underlyingProviders && l.underlyingProviders.length > 0 && (
+                  <span className="text-tinta-suave">
+                    {" "}
+                    · origen: {l.underlyingProviders.join(", ")}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <p className="mt-4 rounded-xl bg-lavanda-50 px-3.5 py-2.5 text-xs text-lavanda-600">
         Es una equivalencia informativa de referencia: no es un precio de
-        compra o venta ni una cotización ejecutable.
+        compra o venta ni una cotización ejecutable, y una tasa de referencia
+        no es una cotización comercial garantizada.
       </p>
     </Modal>
   );

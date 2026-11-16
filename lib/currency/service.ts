@@ -69,6 +69,11 @@ function aPata(q: ExchangeRateQuote): ExchangeRateLeg {
     provider: q.provider,
     providerName: q.providerName,
     publishedAt: q.publishedAt,
+    // Solo lo que el proveedor declaró: si no hay metadatos, la pata
+    // queda sin fuentes subyacentes (nunca se inventan).
+    underlyingProviders: q.underlyingProviders?.length
+      ? [...q.underlyingProviders]
+      : undefined,
   };
 }
 
@@ -195,11 +200,16 @@ export class RateService {
       }
       if (!Number.isFinite(rate) || rate <= 0) continue;
 
+      // Las patas pueden proceder de fuentes oficiales distintas
+      // (ej. EUR/USD vía BCE y USD/BOB vía BCBO): es inherente a una tasa
+      // cruzada de referencia. No se afirma una fuente única: cada pata
+      // conserva las suyas en `legs` y el detalle de la UI las muestra
+      // por separado. Fechas y tipos de tasa incompatibles ya se
+      // descartaron en patasCompatibles.
       const underlying = [
-        ...new Set([
-          ...(leg1.underlyingProviders ?? []),
-          ...(leg2.underlyingProviders ?? []),
-        ]),
+        ...new Set(
+          [leg1, leg2].flatMap((l) => l.underlyingProviders ?? []),
+        ),
       ].slice(0, 8);
 
       const quote: ExchangeRateQuote = {
