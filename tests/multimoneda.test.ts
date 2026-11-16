@@ -294,6 +294,25 @@ test("totales mezclados con conversión válida se suman en la moneda común", (
   assert.equal(g.pendientes, 0);
 });
 
+test("los totales financieros se redondean a los decimales de la moneda común", () => {
+  // 0.1 + 0.2 en flotante da 0.30000000000000004: el total debe ser 0.3.
+  const txs = [
+    tx({ id: "a", tipo: "ingreso", monto: 0.1, moneda: "BOB", fecha: "2026-11-02" }),
+    tx({ id: "b", tipo: "ingreso", monto: 0.2, moneda: "BOB", fecha: "2026-11-03" }),
+    tx({ id: "c", tipo: "gasto", monto: 0.05, moneda: "BOB", fecha: "2026-11-04" }),
+  ];
+  const g = gananciaNeta(txs, "BOB");
+  assert.equal(g.ingresos.total, 0.3);
+  assert.equal(g.egresos.total, 0.05);
+  assert.equal(g.ganancia, 0.25);
+  // Moneda sin decimales (JPY): el total se redondea a entero.
+  const jpy = gananciaNeta(
+    [tx({ id: "j1", tipo: "ingreso", monto: 100.4, moneda: "JPY", fecha: "2026-11-02" })],
+    "JPY",
+  );
+  assert.equal(jpy.ingresos.total, 100);
+});
+
 test("serieMensual y totalesPorCategoria respetan la moneda común", () => {
   const txs = [
     tx({ id: "a", tipo: "ingreso", monto: 100, moneda: "BOB", fecha: "2026-11-05" }),

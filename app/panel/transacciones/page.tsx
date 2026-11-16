@@ -30,6 +30,7 @@ import { roundToCurrency } from "@/lib/currency/decimal";
 import {
   buildConversionFields,
   getExchangeRateProvider,
+  type ConversionFields,
 } from "@/lib/currency/rates";
 import type { Transaction, TxType } from "@/lib/types";
 
@@ -67,6 +68,29 @@ async function conversionFor(
   const provider = getExchangeRateProvider();
   const quote = await provider.getRate(from.toUpperCase(), to.toUpperCase());
   return buildConversionFields(from, to, amount, quote);
+}
+
+/**
+ * Snapshot de conversión previo de una transacción, solo si el importe y
+ * la moneda no cambiaron. Así editar una descripción o una fecha no pierde
+ * la equivalencia histórica, y cambiar el importe la invalida (queda
+ * pendiente hasta tener una cotización válida: nunca se inventa).
+ */
+function conversionPreviaDe(
+  orig: Transaction,
+  moneda: string,
+  monto: number,
+): ConversionFields {
+  if (orig.moneda !== moneda || orig.monto !== monto) return {};
+  const out: ConversionFields = {};
+  if (typeof orig.baseAmount === "number") out.baseAmount = orig.baseAmount;
+  if (typeof orig.baseCurrency === "string") out.baseCurrency = orig.baseCurrency;
+  if (typeof orig.exchangeRate === "number") out.exchangeRate = orig.exchangeRate;
+  if (typeof orig.exchangeRateSource === "string")
+    out.exchangeRateSource = orig.exchangeRateSource;
+  if (typeof orig.exchangeRateDate === "string")
+    out.exchangeRateDate = orig.exchangeRateDate;
+  return out;
 }
 
 function TransactionForm({
@@ -438,6 +462,12 @@ export default function TransaccionesPage() {
               void (async () => {
                 const monto = roundToCurrency(Number(f.monto), currencyDigits(f.moneda));
                 const conversion = await conversionFor(f.moneda, moneda, monto);
+                // Si no hubo cotización nueva al editar, conservamos el
+                // snapshot histórico cuando importe y moneda no cambiaron.
+                const preservado =
+                  modal !== "nueva" && Object.keys(conversion).length === 0
+                    ? conversionPreviaDe(modal, f.moneda, monto)
+                    : {};
                 const tx = {
                   tipo: f.tipo,
                   monto,
@@ -445,6 +475,7 @@ export default function TransaccionesPage() {
                   categoria: f.categoria,
                   descripcion: f.descripcion.trim(),
                   fecha: f.fecha,
+                  ...preservado,
                   ...conversion,
                 };
                 if (modal === "nueva") {

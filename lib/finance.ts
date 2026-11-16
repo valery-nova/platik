@@ -7,6 +7,8 @@
  * pendientes de conversión; nunca se inventa una equivalencia.
  */
 import type { Distribution, Transaction } from "./types";
+import { currencyDigits } from "./currency/catalog";
+import { roundToCurrency } from "./currency/decimal";
 
 /** ¿El movimiento ya tiene una equivalencia válida en la moneda indicada? */
 export function tieneConversionValida(tx: Transaction, monedaBase: string): boolean {
@@ -54,7 +56,9 @@ function sumarPorTipo(
     if (v === null) pendientes += 1;
     else total += v;
   }
-  return { total, pendientes, moneda: monedaBase.toUpperCase() };
+  // Redondeo final a los decimales de la moneda común: evita el polvo de
+  // punto flotante (0.1 + 0.2) en los totales que ve el usuario.
+  return { total: roundToCurrency(total, currencyDigits(monedaBase)), pendientes, moneda: monedaBase.toUpperCase() };
 }
 
 export function totalByType(
@@ -75,7 +79,7 @@ export function totalEgresos(txs: Transaction[], monedaBase: string): TotalMoned
     if (v === null) pendientes += 1;
     else total += v;
   }
-  return { total, pendientes, moneda: monedaBase.toUpperCase() };
+  return { total: roundToCurrency(total, currencyDigits(monedaBase)), pendientes, moneda: monedaBase.toUpperCase() };
 }
 
 export interface Ganancia {
@@ -90,7 +94,10 @@ export interface Ganancia {
 export function gananciaNeta(txs: Transaction[], monedaBase: string): Ganancia {
   const ingresos = sumarPorTipo(txs, "ingreso", monedaBase);
   const egresos = totalEgresos(txs, monedaBase);
-  const ganancia = ingresos.total - egresos.total;
+  const ganancia = roundToCurrency(
+    ingresos.total - egresos.total,
+    currencyDigits(monedaBase),
+  );
   return {
     ingresos,
     egresos,
@@ -146,7 +153,12 @@ export function serieMensual(
     if (tx.tipo === "ingreso") out[idx].ingresos += v;
     else if (tx.tipo === "gasto" || tx.tipo === "costo") out[idx].egresos += v;
   }
-  for (const p of out) p.ganancia = p.ingresos - p.egresos;
+  const digits = currencyDigits(monedaBase);
+  for (const p of out) {
+    p.ingresos = roundToCurrency(p.ingresos, digits);
+    p.egresos = roundToCurrency(p.egresos, digits);
+    p.ganancia = roundToCurrency(p.ingresos - p.egresos, digits);
+  }
   return out;
 }
 
@@ -164,19 +176,23 @@ export function totalesPorCategoria(
   tipos: Transaction["tipo"][] = ["gasto", "costo"],
 ): CategoriaTotal[] {
   const acc = new Map<string, number>();
-  let suma = 0;
   for (const tx of txs) {
     if (!tipos.includes(tx.tipo)) continue;
     const v = montoEnBase(tx, monedaBase);
     if (v === null) continue;
     acc.set(tx.categoria, (acc.get(tx.categoria) ?? 0) + v);
-    suma += v;
   }
-  return [...acc.entries()]
-    .map(([categoria, total]) => ({
+  const digits = currencyDigits(monedaBase);
+  const redondeados = [...acc.entries()].map(([categoria, total]) => ({
+    categoria,
+    total: roundToCurrency(total, digits),
+  }));
+  const sumaRedondeada = redondeados.reduce((a, c) => a + c.total, 0);
+  return redondeados
+    .map(({ categoria, total }) => ({
       categoria,
       total,
-      porcentaje: suma > 0 ? (total / suma) * 100 : 0,
+      porcentaje: sumaRedondeada > 0 ? (total / sumaRedondeada) * 100 : 0,
     }))
     .sort((a, b) => b.total - a.total);
 }
@@ -194,7 +210,8 @@ export function excedenteEstimado(
 ): { operacion: number; reinversion: number; ahorro: number; moneda: string } {
   const g = gananciaNeta(txs, monedaBase);
   const base = g.ganancia > 0 ? g.ganancia : 0;
-  const pct = (p: number) => (base * p) / 100;
+  const digits = currencyDigits(monedaBase);
+  const pct = (p: number) => roundToCurrency((base * p) / 100, digits);
   return {
     operacion: pct(distribucion.operacion),
     reinversion: pct(distribucion.reinversion),
