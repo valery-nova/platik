@@ -2,10 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RateCache, RATES_CACHE_KEY } from "../lib/currency/cache";
 import { clasificarCotizacion, cotizacionUsable } from "../lib/currency/freshness";
-import { refrescarPendientes } from "../lib/currency/refresh";
+import { refrescarPendientes, refrescarPendientesSaldos } from "../lib/currency/refresh";
 import { RateService } from "../lib/currency/service";
 import { buildConversionFields } from "../lib/currency/rates";
-import type { Transaction } from "../lib/types";
+import type { BalanceAdjustment, OpeningBalance, Transaction } from "../lib/types";
 import type {
   ExchangeRateProvider,
   ExchangeRateQuote,
@@ -341,4 +341,24 @@ test("unavailable no modifica snapshots ni importes de movimientos", async () =>
   assert.equal(res.transactions[0].baseAmount, undefined);
   assert.equal(res.transactions[0].exchangeRate, undefined);
   assert.equal(res.transactions[0].monto, 100);
+});
+
+test("saldos pendientes recuperan cotización sin tocar snapshots", async () => {
+  const opening: OpeningBalance = {
+    id: "o1", monto: 100, moneda: "USD", fecha: "2026-11-16", descripcion: "Apertura",
+  };
+  const ajuste: BalanceAdjustment = {
+    id: "a1", monto: -50, moneda: "USD", fecha: "2026-11-16", descripcion: "Ajuste",
+  };
+  const provider = new ScriptedProvider({ "USD|BOB": quote({ from: "USD", to: "BOB", rate: 6.9 }) });
+  const res = await refrescarPendientesSaldos(
+    { openingBalance: opening, balanceAdjustments: [ajuste] },
+    "BOB",
+    servicio(provider),
+    { force: true },
+  );
+  assert.equal(res.convertidos, 2);
+  assert.equal(res.pendientes, 0);
+  assert.equal(res.openingBalance?.baseAmount, 690);
+  assert.equal(res.balanceAdjustments[0].baseAmount, -345);
 });

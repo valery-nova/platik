@@ -11,6 +11,7 @@ import { currencyDigits, currencyStep, listCurrencies } from "@/lib/currency/cat
 import { roundToCurrency } from "@/lib/currency/decimal";
 import { buildConversionFields } from "@/lib/currency/rates";
 import { getRateService } from "@/lib/currency/service";
+import { refrescarPendientesSaldos } from "@/lib/currency/refresh";
 
 async function conversionFor(from: string, to: string, amount: number) {
   if (from.toUpperCase() === to.toUpperCase()) return {};
@@ -25,12 +26,16 @@ export function SaldoDisponibleCard() {
     setOpeningBalance,
     addBalanceAdjustment,
     deleteBalanceAdjustment,
+    updateBalanceAdjustment,
   } = usePlatik();
   const moneda = data.profile.moneda;
   const saldo = saldoDisponible(data, moneda);
   const [formAjuste, setFormAjuste] = useState({ direccion: "entrada" as "entrada" | "salida", monto: "", moneda, fecha: hoyISO(), descripcion: "" });
   const [formSaldo, setFormSaldo] = useState({ monto: "", moneda, fecha: "" });
   const [aviso, setAviso] = useState("");
+  const [guardandoSaldo, setGuardandoSaldo] = useState(false);
+  const [guardandoAjuste, setGuardandoAjuste] = useState(false);
+  const [actualizandoSaldos, setActualizandoSaldos] = useState(false);
 
   if (!hydrated) return null;
 
@@ -40,40 +45,82 @@ export function SaldoDisponibleCard() {
   }
 
   async function guardarSaldo() {
+    if (guardandoSaldo) return;
     const monto = Number(formSaldo.monto);
-    if (!(monto > 0) || roundToCurrency(monto, currencyDigits(formSaldo.moneda)) <= 0) {
+    const montoGuardado = roundToCurrency(monto, currencyDigits(formSaldo.moneda));
+    if (!(montoGuardado > 0)) {
       notify("El saldo inicial debe ser válido para la moneda elegida.");
       return;
     }
-    const conversion = await conversionFor(formSaldo.moneda, moneda, monto);
-    setOpeningBalance({
-      monto: roundToCurrency(monto, currencyDigits(formSaldo.moneda)),
-      moneda: formSaldo.moneda.toUpperCase(),
-      fecha: formSaldo.fecha || hoyISO(),
-      descripcion: "Saldo de apertura",
-      ...conversion,
-    });
-    notify("Saldo inicial registrado como apertura.");
+    setGuardandoSaldo(true);
+    try {
+      const conversion = await conversionFor(formSaldo.moneda, moneda, montoGuardado);
+      setOpeningBalance({
+        monto: montoGuardado,
+        moneda: formSaldo.moneda.toUpperCase(),
+        fecha: formSaldo.fecha || hoyISO(),
+        descripcion: "Saldo de apertura",
+        ...conversion,
+      });
+      notify("Saldo inicial registrado como apertura.");
+    } finally {
+      setGuardandoSaldo(false);
+    }
   }
 
   async function guardarAjuste() {
+    if (guardandoAjuste) return;
     const abs = Number(formAjuste.monto);
-    if (!(abs > 0) || roundToCurrency(abs, currencyDigits(formAjuste.moneda)) <= 0 || formAjuste.descripcion.trim().length < 2) {
+    const absGuardado = roundToCurrency(abs, currencyDigits(formAjuste.moneda));
+    if (!(absGuardado > 0) || formAjuste.descripcion.trim().length < 2) {
       notify("Revisa el ajuste: monto válido y descripción obligatoria.");
       return;
     }
-    const signo = formAjuste.direccion === "entrada" ? 1 : -1;
-    const conversion = await conversionFor(formAjuste.moneda, moneda, abs);
-    if (conversion.baseAmount !== undefined) conversion.baseAmount = roundToCurrency(conversion.baseAmount * signo, currencyDigits(moneda));
-    addBalanceAdjustment({
-      monto: roundToCurrency(abs * signo, currencyDigits(formAjuste.moneda)),
-      moneda: formAjuste.moneda.toUpperCase(),
-      fecha: formAjuste.fecha || hoyISO(),
-      descripcion: formAjuste.descripcion.trim(),
-      ...conversion,
-    });
-    setFormAjuste((f) => ({ ...f, monto: "", descripcion: "" }));
-    notify("Ajuste registrado de forma trazable.");
+    setGuardandoAjuste(true);
+    try {
+      const signo = formAjuste.direccion === "entrada" ? 1 : -1;
+      const conversion = await conversionFor(formAjuste.moneda, moneda, absGuardado);
+      if (conversion.baseAmount !== undefined) conversion.baseAmount = roundToCurrency(conversion.baseAmount * signo, currencyDigits(moneda));
+      addBalanceAdjustment({
+        monto: roundToCurrency(absGuardado * signo, currencyDigits(formAjuste.moneda)),
+        moneda: formAjuste.moneda.toUpperCase(),
+        fecha: formAjuste.fecha || hoyISO(),
+        descripcion: formAjuste.descripcion.trim(),
+        ...conversion,
+      });
+      setFormAjuste((f) => ({ ...f, monto: "", descripcion: "" }));
+      notify("Ajuste registrado de forma trazable.");
+    } finally {
+      setGuardandoAjuste(false);
+    }
+  }
+
+  async function actualizarSaldos() {
+    if (actualizandoSaldos || saldo.pendientesAjustes === 0) return;
+    setActualizandoSaldos(true);
+    try {
+      const res = await refrescarPendientesSaldos(
+        { openingBalance: data.openingBalance, balanceAdjustments: data.balanceAdjustments },
+        moneda,
+        getRateService(),
+        { force: true },
+      );
+      const prevOpening = data.openingBalance;
+      if (res.openingBalance && res.openingBalance !== prevOpening) {
+        setOpeningBalance(res.openingBalance);
+      }
+      for (const ajuste of res.balanceAdjustments) {
+        const prev = data.balanceAdjustments.find((a) => a.id === ajuste.id);
+        if (!prev || prev.monto !== ajuste.monto || prev.moneda !== ajuste.moneda) continue;
+        if (prev.baseAmount === ajuste.baseAmount && prev.exchangeRate === ajuste.exchangeRate) continue;
+        updateBalanceAdjustment(ajuste);
+      }
+      notify(res.convertidos > 0 ? `Cotizaciones actualizadas: ${res.convertidos}.` : "No hay cotizaciones nuevas disponibles.");
+    } catch {
+      notify("No se pudieron actualizar las cotizaciones.");
+    } finally {
+      setActualizandoSaldos(false);
+    }
   }
 
   return (
@@ -90,6 +137,15 @@ export function SaldoDisponibleCard() {
         </div>
         <p className="mt-1 text-xs text-tinta-suave">{saldo.motivo}</p>
       </div>
+
+      {saldo.pendientesAjustes > 0 && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-coral-200 bg-coral-50 px-4 py-2.5 text-sm">
+          <span className="text-tinta">Hay saldos o ajustes pendientes de cotización.</span>
+          <Button variant="outline" onClick={actualizarSaldos} disabled={actualizandoSaldos}>
+            {actualizandoSaldos ? "Actualizando…" : "Reintentar cotizaciones"}
+          </Button>
+        </div>
+      )}
 
       <div className="mt-4 space-y-4">
         <div className="rounded-2xl border border-petroleo/10 p-4">
@@ -111,7 +167,7 @@ export function SaldoDisponibleCard() {
                 {listCurrencies().map((c) => <option key={c.code} value={c.code}>{c.code}</option>)}
               </Select>
               <Input type="date" value={formSaldo.fecha} max={hoyISO()} onChange={(e) => setFormSaldo((f) => ({ ...f, fecha: e.target.value }))} aria-label="Fecha del saldo inicial" />
-              <Button variant="accent" onClick={guardarSaldo}><Check size={15} /> Registrar</Button>
+              <Button variant="accent" onClick={guardarSaldo} disabled={guardandoSaldo}><Check size={15} /> {guardandoSaldo ? "Guardando…" : "Registrar"}</Button>
             </div>
           )}
           <p className="mt-2 text-xs text-tinta-suave">El saldo inicial es una apertura, no un ingreso ordinario.</p>
@@ -143,7 +199,7 @@ export function SaldoDisponibleCard() {
             </Select>
             <Input type="date" value={formAjuste.fecha} max={hoyISO()} onChange={(e) => setFormAjuste((f) => ({ ...f, fecha: e.target.value }))} aria-label="Fecha del ajuste" />
             <Input placeholder="Descripción" value={formAjuste.descripcion} onChange={(e) => setFormAjuste((f) => ({ ...f, descripcion: e.target.value }))} aria-label="Descripción del ajuste" />
-            <Button variant="outline" onClick={guardarAjuste}><Plus size={15} /> Añadir</Button>
+            <Button variant="outline" onClick={guardarAjuste} disabled={guardandoAjuste}><Plus size={15} /> {guardandoAjuste ? "Añadiendo…" : "Añadir"}</Button>
           </div>
         </div>
       </div>

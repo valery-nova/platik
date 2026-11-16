@@ -63,9 +63,10 @@ export function BetaSetup() {
       betaSetupDone: true,
     });
     if (usarSaldo) {
-      const conversion = await conversionFor(moneda, data.profile.moneda, montoNum);
+      const montoGuardado = roundToCurrency(montoNum, currencyDigits(moneda));
+      const conversion = await conversionFor(moneda, data.profile.moneda, montoGuardado);
       setOpeningBalance({
-        monto: roundToCurrency(montoNum, currencyDigits(moneda)),
+        monto: montoGuardado,
         moneda: moneda.toUpperCase(),
         fecha: fecha || hoyISO(),
         descripcion: "Saldo de apertura",
