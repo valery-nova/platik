@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   ADMIN_COOKIE,
   adminConfigured,
+  adminSessionCookieMaxAgeSeconds,
   createAdminSessionToken,
   verifyAdminCredentials,
 } from "@/lib/admin/auth";
@@ -19,7 +20,7 @@ export async function login(formData: FormData): Promise<void> {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 8 * 60 * 60,
+    maxAge: adminSessionCookieMaxAgeSeconds(),
   });
   redirect("/admin");
 }

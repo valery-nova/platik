@@ -12,6 +12,10 @@ function sessionTtlSeconds(): number {
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_TTL_SECONDS;
 }
 
+export function adminSessionCookieMaxAgeSeconds(): number {
+  return sessionTtlSeconds();
+}
+
 export function adminConfigured(): boolean {
   return Boolean(
     process.env.ADMIN_FOUNDER_EMAIL?.trim() &&
