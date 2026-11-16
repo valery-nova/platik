@@ -248,6 +248,23 @@ test("F9-6: la distribución nunca supera el dinero disponible (redondeo ISO)", 
     assert.ok([m.operacion, m.reinversion, m.ahorro].every((v) => v >= 0));
   }
   assert.equal(montosDistribucion({ operacion: 50, reinversion: 30, ahorro: 20 }, -1, "BOB"), null);
+  // Reparto del 100 % de 2.01 BOB: el redondeo de centavos no deja
+  // dinero sin asignar ni supera el disponible.
+  const centavos = montosDistribucion({ operacion: 50, reinversion: 50, ahorro: 0 }, 2.01, "BOB")!;
+  const sumaCentavos = centavos.operacion + centavos.reinversion + centavos.ahorro;
+  assert.equal(sumaCentavos, 2.01);
+  assert.equal(centavos.sinAsignar, 0);
+  // Distribución temporalmente inválida (300 % sobre 300 BOB): nunca
+  // asigna más de lo disponible ni genera importes negativos.
+  const exceso = montosDistribucion({ operacion: 100, reinversion: 100, ahorro: 100 }, 300, "BOB")!;
+  const sumaExceso = exceso.operacion + exceso.reinversion + exceso.ahorro;
+  assert.ok(sumaExceso <= 300);
+  assert.ok(exceso.sinAsignar >= 0);
+  assert.ok([exceso.operacion, exceso.reinversion, exceso.ahorro].every((v) => v >= 0));
+  assert.equal(sumaExceso + exceso.sinAsignar, 300);
+  // Reparto parcial (<100 %) sí deja el remanente sin asignar.
+  const parcial = montosDistribucion({ operacion: 40, reinversion: 20, ahorro: 10 }, 300, "BOB")!;
+  assert.equal(parcial.sinAsignar, 90);
 });
 
 // 7. Distintas monedas

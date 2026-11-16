@@ -513,19 +513,50 @@ export function montosDistribucion(
   const step = 1 / 10 ** digits;
   // Importe de una categoría: porcentaje → unidades monetarias redondeadas.
   const amount = (p: number) => Math.round(((base * p) / 100 / step)) * step;
+  const keys = ["operacion", "reinversion", "ahorro"] as const;
   const montos = {
-    operacion: roundToCurrency(amount(d.operacion), digits),
-    reinversion: roundToCurrency(amount(d.reinversion), digits),
-    ahorro: roundToCurrency(amount(d.ahorro), digits),
+    operacion: amount(d.operacion),
+    reinversion: amount(d.reinversion),
+    ahorro: amount(d.ahorro),
   };
-  const suma = roundToCurrency(montos.operacion + montos.reinversion + montos.ahorro, digits);
-  if (suma > base) {
-    const mayor = (Object.keys(montos) as CategoriaDistribucion[]).reduce((a, b) =>
-      montos[b] > montos[a] ? b : a,
-    );
-    montos[mayor] = roundToCurrency(Math.max(0, montos[mayor] - (suma - base)), digits);
+  let asignado = roundToCurrency(montos.operacion + montos.reinversion + montos.ahorro, digits);
+  const pctTotal = d.operacion + d.reinversion + d.ahorro;
+  const repartoCompleto = Math.abs(pctTotal - 100) < 1e-6;
+
+  if (asignado > base && asignado > 0) {
+    // Reparto que excede lo disponible (suma > 100 %, típico durante la
+    // edición): se escala proporcionalmente redondeando hacia abajo, de
+    // modo que nunca se supere el disponible ni queden importes negativos.
+    const escala = base / asignado;
+    for (const k of keys) {
+      montos[k] = roundToCurrency(
+        Math.floor(((montos[k] * escala) / step) + 1e-6) * step,
+        digits,
+      );
+    }
+    asignado = roundToCurrency(montos.operacion + montos.reinversion + montos.ahorro, digits);
+    // El redondeo hacia abajo deja centavos: se completan en la categoría
+    // mayor sin superar el disponible.
+    const remanente = roundToCurrency(base - asignado, digits);
+    if (remanente > 0) {
+      const mayor = keys.reduce((a, b) => (montos[b] > montos[a] ? b : a));
+      montos[mayor] = roundToCurrency(montos[mayor] + remanente, digits);
+      asignado = roundToCurrency(asignado + remanente, digits);
+    }
+  } else if (repartoCompleto && base > asignado) {
+    // Reparto del 100 %: el redondeo de centavos no debe dejar dinero sin
+    // asignar; el remanente (unas pocas unidades como máximo) va a la
+    // categoría mayor.
+    const remanente = roundToCurrency(base - asignado, digits);
+    const mayor = keys.reduce((a, b) => (montos[b] > montos[a] ? b : a));
+    montos[mayor] = roundToCurrency(montos[mayor] + remanente, digits);
+    asignado = roundToCurrency(asignado + remanente, digits);
   }
-  const asignado = roundToCurrency(montos.operacion + montos.reinversion + montos.ahorro, digits);
-  return { ...montos, sinAsignar: roundToCurrency(base - asignado, digits), moneda: moneda.toUpperCase() };
+
+  return {
+    ...montos,
+    sinAsignar: roundToCurrency(Math.max(0, base - asignado), digits),
+    moneda: moneda.toUpperCase(),
+  };
 }
 
