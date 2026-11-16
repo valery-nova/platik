@@ -394,7 +394,7 @@ export default function TransaccionesPage() {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-tinta">
+                  <p id={`tx-desc-${txIndex}`} className="truncate text-sm font-medium text-tinta">
                     {t.descripcion}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-tinta-suave">
@@ -429,16 +429,18 @@ export default function TransaccionesPage() {
                 <div className="flex shrink-0 gap-1">
                   <button
                     onClick={() => setModal(t)}
-                    aria-label={`Editar transacción ${txIndex + 1}`}
+                    aria-labelledby={`tx-edit-${txIndex} tx-desc-${txIndex}`}
                     className="rounded-lg p-2 text-tinta-suave hover:bg-petroleo-50 hover:text-petroleo"
                   >
+                    <span id={`tx-edit-${txIndex}`} className="sr-only">Editar transacción</span>
                     <Pencil size={16} />
                   </button>
                   <button
                     onClick={() => setConfirmDelete(t)}
-                    aria-label={`Eliminar transacción ${txIndex + 1}`}
+                    aria-labelledby={`tx-delete-${txIndex} tx-desc-${txIndex}`}
                     className="rounded-lg p-2 text-tinta-suave hover:bg-coral-50 hover:text-coral-600"
                   >
+                    <span id={`tx-delete-${txIndex}`} className="sr-only">Eliminar transacción</span>
                     <Trash2 size={16} />
                   </button>
                 </div>

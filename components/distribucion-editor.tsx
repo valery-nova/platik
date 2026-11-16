@@ -101,19 +101,22 @@ export function DistribucionEditor() {
         {dist.map((c, catIndex) => {
           const importe = montos?.porCategoria[c.key] ?? null;
           return (
-            <Field key={c.key} label={c.nombre} hint={c.descripcion || "Categoría personalizada"}>
+            <Field key={c.key} label={c.nombre} labelId={`dist-cat-${catIndex}`} hint={c.descripcion || "Categoría personalizada"}>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1.5">
-                  <Input type="number" min={0} max={100} step={0.001} aria-label={`Porcentaje de categoría ${catIndex + 1}`} value={c.porcentaje} onChange={(e) => setPct(c.key, e.target.value)} className="w-24" />
-                  <span className="text-sm text-tinta-suave">%</span>
+                  <span id={`dist-pct-${catIndex}`} className="sr-only">Porcentaje</span>
+                  <Input type="number" min={0} max={100} step={0.001} aria-labelledby={`dist-pct-${catIndex} dist-cat-${catIndex}`} value={c.porcentaje} onChange={(e) => setPct(c.key, e.target.value)} className="w-24" />
+                  <span aria-hidden="true" className="text-sm text-tinta-suave">%</span>
                 </div>
                 {montos && disponible !== null ? (
                   <div className="flex items-center gap-1.5">
-                    <Input type="number" min={0} max={disponible} step={paso} aria-label={`Monto de categoría ${catIndex + 1}`} value={importe ?? 0} onChange={(e) => setMonto(c.key, e.target.value)} className="w-36" />
-                    <span className="text-sm text-tinta-suave">{moneda}</span>
+                    <span id={`dist-amount-${catIndex}`} className="sr-only">Monto</span>
+                    <Input type="number" min={0} max={disponible} step={paso} aria-labelledby={`dist-amount-${catIndex} dist-cat-${catIndex}`} value={importe ?? 0} onChange={(e) => setMonto(c.key, e.target.value)} className="w-36" />
+                    <span aria-hidden="true" className="text-sm text-tinta-suave">{moneda}</span>
                   </div>
                 ) : null}
-                <button onClick={() => quitarCategoria(c.key)} aria-label={`Quitar categoría ${catIndex + 1}`} className="rounded-lg p-2 text-tinta-suave hover:bg-coral-50 hover:text-coral-600"><Trash2 size={16} /></button>
+                <span id={`dist-remove-${catIndex}`} className="sr-only">Quitar categoría</span>
+                <button onClick={() => quitarCategoria(c.key)} aria-labelledby={`dist-remove-${catIndex} dist-cat-${catIndex}`} className="rounded-lg p-2 text-tinta-suave hover:bg-coral-50 hover:text-coral-600"><Trash2 size={16} /></button>
               </div>
             </Field>
           );

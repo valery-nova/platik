@@ -223,7 +223,7 @@ export default function MetasPage() {
               <Card key={g.id} className="flex flex-col p-5">
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="font-semibold text-petroleo">{g.nombre}</h3>
+                    <h3 id={`goal-name-${goalIndex}`} className="font-semibold text-petroleo">{g.nombre}</h3>
                     {g.fechaObjetivo && (
                       <p className="mt-0.5 text-xs text-tinta-suave">
                         Objetivo: {formatFecha(g.fechaObjetivo)}
@@ -271,16 +271,18 @@ export default function MetasPage() {
                   </Button>
                   <button
                     onClick={() => setModal(g)}
-                    aria-label={`Editar meta ${goalIndex + 1}`}
+                    aria-labelledby={`goal-edit-${goalIndex} goal-name-${goalIndex}`}
                     className="rounded-xl border border-petroleo/15 p-2.5 text-tinta-suave hover:border-petroleo/40 hover:text-petroleo"
                   >
+                    <span id={`goal-edit-${goalIndex}`} className="sr-only">Editar meta</span>
                     <Pencil size={15} />
                   </button>
                   <button
                     onClick={() => setConfirmDelete(g)}
-                    aria-label={`Eliminar meta ${goalIndex + 1}`}
+                    aria-labelledby={`goal-delete-${goalIndex} goal-name-${goalIndex}`}
                     className="rounded-xl border border-petroleo/15 p-2.5 text-tinta-suave hover:border-coral-600/50 hover:text-coral-600"
                   >
+                    <span id={`goal-delete-${goalIndex}`} className="sr-only">Eliminar meta</span>
                     <Trash2 size={15} />
                   </button>
                 </div>
