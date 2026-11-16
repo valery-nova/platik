@@ -10,7 +10,7 @@
  *   un valor aproximado.
  * - El detalle (tipo de tasa, fuente, fechas) queda a un clic.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Info, RefreshCw } from "lucide-react";
 import { Button, Modal } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
@@ -222,6 +222,12 @@ export function EquivalenciaSecundaria({
  */
 export function BotonActualizarCotizaciones() {
   const { data, hydrated, updateTransaction } = usePlatik();
+  // Estado más reciente del store: mientras se consultan las cotizaciones
+  // el usuario puede seguir editando movimientos.
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
   const [estado, setEstado] = useState<"inactivo" | "cargando" | "ok" | "error">(
     "inactivo",
   );
@@ -240,11 +246,32 @@ export function BotonActualizarCotizaciones() {
         // para no reutilizar un fallo o cobertura cacheados (10 min).
         { force: true },
       );
-      for (const tx of res.actualizados) updateTransaction(tx);
+      // Aplica solo los campos de conversión sobre el movimiento actual:
+      // si el usuario lo editó mientras se consultaban las cotizaciones
+      // (otro importe o moneda), no se sobrescribe su edición.
+      const actuales = dataRef.current.transactions;
+      let aplicados = 0;
+      for (const tx of res.actualizados) {
+        const actual = actuales.find((t) => t.id === tx.id);
+        if (!actual || actual.monto !== tx.monto || actual.moneda !== tx.moneda) {
+          continue;
+        }
+        updateTransaction({
+          ...actual,
+          baseAmount: tx.baseAmount,
+          baseCurrency: tx.baseCurrency,
+          exchangeRate: tx.exchangeRate,
+          exchangeRateSource: tx.exchangeRateSource,
+          exchangeRateDate: tx.exchangeRateDate,
+          exchangeRateType: tx.exchangeRateType,
+          exchangeRatePublishedAt: tx.exchangeRatePublishedAt,
+        });
+        aplicados += 1;
+      }
       setEstado("ok");
       setMensaje(
-        res.convertidos > 0
-          ? `${res.convertidos} movimiento(s) actualizado(s) con cotización válida. ${res.pendientes} siguen pendiente(s).`
+        aplicados > 0
+          ? `${aplicados} movimiento(s) actualizado(s) con cotización válida. ${res.pendientes} siguen pendiente(s).`
           : `No hay cotización válida disponible todavía. ${res.pendientes} movimiento(s) pendiente(s).`,
       );
     } catch {
