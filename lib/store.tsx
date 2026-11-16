@@ -40,11 +40,12 @@ type Action =
   | { type: "goal/update"; goal: Goal }
   | { type: "goal/delete"; id: string }
   | { type: "goal/aporte"; id: string; monto: number }
-  | { type: "profile/update"; profile: Profile }
+  | { type: "profile/update"; mode: PlatikMode; profile: Profile }
   | { type: "distribution/update"; distribution: DistributionCategory[] }
-  | { type: "openingBalance/set"; openingBalance: OpeningBalance | null }
-  | { type: "balanceAdjustment/add"; adjustment: BalanceAdjustment }
+  | { type: "openingBalance/set"; mode: PlatikMode; openingBalance: OpeningBalance | null }
+  | { type: "balanceAdjustment/add"; mode: PlatikMode; adjustment: BalanceAdjustment }
   | { type: "balanceAdjustment/delete"; id: string }
+  | { type: "balanceAdjustment/update"; mode: PlatikMode; adjustment: BalanceAdjustment }
   | { type: "aporteStellar/upsert"; aporte: AporteStellar }
   | { type: "aporteStellar/delete"; id: string }
   | { type: "reset"; mode: PlatikMode };
@@ -97,12 +98,15 @@ function reducer(state: State, action: Action): State {
         ),
       });
     case "profile/update":
+      if (action.mode !== state.mode) return state;
       return withData(state, { profile: action.profile });
     case "distribution/update":
       return withData(state, { distribution: action.distribution });
     case "openingBalance/set":
+      if (action.mode !== state.mode) return state;
       return withData(state, { openingBalance: action.openingBalance });
     case "balanceAdjustment/add":
+      if (action.mode !== state.mode) return state;
       return withData(state, {
         balanceAdjustments: [action.adjustment, ...state.data.balanceAdjustments],
       });
@@ -110,6 +114,13 @@ function reducer(state: State, action: Action): State {
       return withData(state, {
         balanceAdjustments: state.data.balanceAdjustments.filter(
           (a) => a.id !== action.id,
+        ),
+      });
+    case "balanceAdjustment/update":
+      if (action.mode !== state.mode) return state;
+      return withData(state, {
+        balanceAdjustments: state.data.balanceAdjustments.map((a) =>
+          a.id === action.adjustment.id ? action.adjustment : a,
         ),
       });
     case "aporteStellar/upsert":
@@ -153,6 +164,7 @@ interface Store {
   setOpeningBalance: (opening: Omit<OpeningBalance, "id"> | null) => void;
   addBalanceAdjustment: (adjustment: Omit<BalanceAdjustment, "id">) => void;
   deleteBalanceAdjustment: (id: string) => void;
+  updateBalanceAdjustment: (adjustment: BalanceAdjustment) => void;
   upsertAporteStellar: (aporte: AporteStellar) => void;
   deleteAporteStellar: (id: string) => void;
 }
@@ -187,7 +199,11 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useReducer(() => true, false);
 
   useEffect(() => {
-    dispatch({ type: "hydrate", ...loadStateForMode(readMode(window.localStorage)) });
+    try {
+      dispatch({ type: "hydrate", ...loadStateForMode(readMode(window.localStorage)) });
+    } catch {
+      dispatch({ type: "hydrate", mode: "demo", data: defaultPlatikData("demo"), customized: false });
+    }
     setHydrated();
   }, []);
 
@@ -207,11 +223,15 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    writePlatik(window.localStorage, state.mode, {
-      version: SCHEMA_VERSION,
-      data: state.data,
-      customized: state.customized,
-    });
+    try {
+      writePlatik(window.localStorage, state.mode, {
+        version: SCHEMA_VERSION,
+        data: state.data,
+        customized: state.customized,
+      });
+    } catch {
+      // Sin almacenamiento: la sesión sigue en memoria.
+    }
   }, [state, hydrated]);
 
   const store = useMemo<Store>(
@@ -220,8 +240,12 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
       data: state.data,
       hydrated,
       switchMode: (mode) => {
-        writeMode(window.localStorage, mode);
-        dispatch({ type: "hydrate", ...loadStateForMode(mode) });
+        try {
+          writeMode(window.localStorage, mode);
+          dispatch({ type: "hydrate", ...loadStateForMode(mode) });
+        } catch {
+          dispatch({ type: "hydrate", mode, data: defaultPlatikData(mode), customized: false });
+        }
       },
       resetCurrent: () => dispatch({ type: "reset", mode: state.mode }),
       addTransaction: (tx) => dispatch({ type: "tx/add", tx: { ...tx, id: newId() } }),
@@ -231,19 +255,23 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
       updateGoal: (goal) => dispatch({ type: "goal/update", goal }),
       deleteGoal: (id) => dispatch({ type: "goal/delete", id }),
       addAporte: (id, monto) => dispatch({ type: "goal/aporte", id, monto }),
-      updateProfile: (profile) => dispatch({ type: "profile/update", profile }),
+      updateProfile: (profile) => dispatch({ type: "profile/update", mode: state.mode, profile }),
       updateDistribution: (distribution) =>
         dispatch({ type: "distribution/update", distribution }),
       setOpeningBalance: (opening) =>
         dispatch({
           type: "openingBalance/set",
+          mode: state.mode,
           openingBalance: opening ? { ...opening, id: newId() } : null,
         }),
       addBalanceAdjustment: (adjustment) =>
         dispatch({
           type: "balanceAdjustment/add",
+          mode: state.mode,
           adjustment: { ...adjustment, id: newId() },
         }),
+      updateBalanceAdjustment: (adjustment) =>
+        dispatch({ type: "balanceAdjustment/update", mode: state.mode, adjustment }),
       deleteBalanceAdjustment: (id) => dispatch({ type: "balanceAdjustment/delete", id }),
       upsertAporteStellar: (aporte) =>
         dispatch({ type: "aporteStellar/upsert", aporte }),
