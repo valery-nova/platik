@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
+import { usePlatik } from "@/lib/store";
 
 export function Card({
   children,
@@ -36,6 +37,26 @@ export function CardHeader({
         {subtitle && (
           <p className="mt-0.5 text-sm text-tinta-suave">{subtitle}</p>
         )}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+export function PageHeader({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 className="text-2xl font-bold text-petroleo sm:text-3xl">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-tinta-suave">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -108,7 +129,13 @@ export function Badge({
 }
 
 export function DemoBadge() {
-  return <Badge tone="demo">Datos de demostración</Badge>;
+  const { mode, hydrated } = usePlatik();
+  if (!hydrated) return null;
+  return mode === "demo" ? (
+    <Badge tone="demo">Datos de demostración</Badge>
+  ) : (
+    <Badge tone="lavanda">Prueba beta · 72 h</Badge>
+  );
 }
 
 export function Field({

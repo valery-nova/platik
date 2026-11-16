@@ -9,6 +9,7 @@ import {
   EquivalenciaSecundaria,
 } from "@/components/equivalencia";
 import { usePlatik } from "@/lib/store";
+import { saldoDisponible } from "@/lib/balance";
 import {
   serieMensual,
   totalesPorCategoria,
@@ -129,7 +130,8 @@ export default function AnalisisPage() {
     { desde: haceDiasISO(29), hasta: hoyISO() },
     { desde: haceDiasISO(59), hasta: haceDiasISO(30) },
   );
-  const { actual, previo, disponible, hallazgos } = diag;
+  const { actual, previo, hallazgos } = diag;
+  const disponible = saldoDisponible(data, moneda);
   const pendientes = actual.pendientesIngresos + actual.pendientesEgresos;
   const gananciaNetaValor = actual.ganancia;
   const margen = actual.margen;

@@ -12,7 +12,7 @@
  * conserva con su importe original.
  */
 import { tieneConversionValida } from "../finance";
-import type { Transaction } from "../types";
+import type { BalanceAdjustment, MonetaryAmount, OpeningBalance, Transaction } from "../types";
 import { buildConversionFields } from "./rates";
 import type { RateService } from "./service";
 
@@ -70,4 +70,61 @@ export async function refrescarPendientes(
   }).length;
 
   return { transactions: out, actualizados, convertidos: actualizados.length, pendientes };
+}
+
+export interface RefreshSaldosResult {
+  openingBalance: OpeningBalance | null;
+  balanceAdjustments: BalanceAdjustment[];
+  convertidos: number;
+  pendientes: number;
+}
+
+function sinSnapshotMonetario(item: MonetaryAmount): boolean {
+  return item.baseAmount == null && item.exchangeRate == null && item.exchangeRateSource == null;
+}
+
+async function refrescarMonetario<T extends MonetaryAmount & { id: string }>(
+  item: T,
+  monedaBase: string,
+  service: RateService,
+  options?: { force?: boolean },
+): Promise<{ item: T; convertido: boolean }> {
+  const base = monedaBase.toUpperCase();
+  const moneda = (item.moneda || "BOB").toUpperCase();
+  if (moneda === base) return { item, convertido: false };
+  if (tieneConversionValida(item, base)) return { item, convertido: false };
+  if (!sinSnapshotMonetario(item)) return { item, convertido: false };
+
+  const { quote } = await service.quote(moneda, base, options);
+  if (!quote || quote.status !== "valid") return { item, convertido: false };
+  const fields = buildConversionFields(moneda, base, item.monto, quote);
+  if (Object.keys(fields).length === 0) return { item, convertido: false };
+  return { item: { ...item, ...fields }, convertido: true };
+}
+
+/** Reintenta cotizaciones pendientes de saldo inicial y ajustes, sin tocar snapshots históricos. */
+export async function refrescarPendientesSaldos(
+  data: { openingBalance: OpeningBalance | null; balanceAdjustments: BalanceAdjustment[] },
+  monedaBase: string,
+  service: RateService,
+  options?: { force?: boolean },
+): Promise<RefreshSaldosResult> {
+  const base = monedaBase.toUpperCase();
+  let convertidos = 0;
+  let openingBalance = data.openingBalance;
+  if (openingBalance) {
+    const r = await refrescarMonetario(openingBalance, base, service, options);
+    openingBalance = r.item;
+    if (r.convertido) convertidos += 1;
+  }
+  const balanceAdjustments: BalanceAdjustment[] = [];
+  for (const ajuste of data.balanceAdjustments) {
+    const r = await refrescarMonetario(ajuste, base, service, options);
+    balanceAdjustments.push(r.item);
+    if (r.convertido) convertidos += 1;
+  }
+  const pendientes =
+    (openingBalance && (openingBalance.moneda || "BOB").toUpperCase() !== base && !tieneConversionValida(openingBalance, base) ? 1 : 0) +
+    balanceAdjustments.filter((a) => (a.moneda || "BOB").toUpperCase() !== base && !tieneConversionValida(a, base)).length;
+  return { openingBalance, balanceAdjustments, convertidos, pendientes };
 }

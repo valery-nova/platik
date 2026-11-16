@@ -6,12 +6,12 @@
  * cotización válida se conservan con su importe original y se marcan como
  * pendientes de conversión; nunca se inventa una equivalencia.
  */
-import type { Distribution, Transaction } from "./types";
+import type { DistributionCategory, MonetaryAmount, Transaction } from "./types";
 import { currencyDigits } from "./currency/catalog";
 import { roundToCurrency } from "./currency/decimal";
 
 /** ¿El movimiento ya tiene una equivalencia válida en la moneda indicada? */
-export function tieneConversionValida(tx: Transaction, monedaBase: string): boolean {
+export function tieneConversionValida(tx: MonetaryAmount, monedaBase: string): boolean {
   return (
     typeof tx.baseAmount === "number" &&
     Number.isFinite(tx.baseAmount) &&
@@ -27,7 +27,7 @@ export function tieneConversionValida(tx: Transaction, monedaBase: string): bool
  * Importe del movimiento en la moneda común indicada, o null si no hay
  * conversión válida. Misma moneda ⇒ el importe original es válido.
  */
-export function montoEnBase(tx: Transaction, monedaBase: string): number | null {
+export function montoEnBase(tx: MonetaryAmount, monedaBase: string): number | null {
   const moneda = (tx.moneda || "BOB").toUpperCase();
   const base = monedaBase.toUpperCase();
   if (moneda === base) return tx.monto;
@@ -202,22 +202,20 @@ export function ultimasTransacciones(txs: Transaction[], limite = 6): Transactio
   return [...txs].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, limite);
 }
 
-/** Excedente estimado según la distribución configurada. */
+/** Excedente estimado según la distribución configurada (porcentajes sobre la ganancia). */
 export function excedenteEstimado(
   txs: Transaction[],
-  distribucion: Distribution,
+  distribucion: DistributionCategory[],
   monedaBase: string,
-): { operacion: number; reinversion: number; ahorro: number; moneda: string } {
+): { porCategoria: Record<string, number>; moneda: string } {
   const g = gananciaNeta(txs, monedaBase);
   const base = g.ganancia > 0 ? g.ganancia : 0;
   const digits = currencyDigits(monedaBase);
-  const pct = (p: number) => roundToCurrency((base * p) / 100, digits);
-  return {
-    operacion: pct(distribucion.operacion),
-    reinversion: pct(distribucion.reinversion),
-    ahorro: pct(distribucion.ahorro),
-    moneda: monedaBase.toUpperCase(),
-  };
+  const porCategoria: Record<string, number> = {};
+  for (const c of distribucion) {
+    porCategoria[c.key] = roundToCurrency((base * Math.max(0, c.porcentaje)) / 100, digits);
+  }
+  return { porCategoria, moneda: monedaBase.toUpperCase() };
 }
 
 export function hoyISO(fecha: Date = new Date()): string {

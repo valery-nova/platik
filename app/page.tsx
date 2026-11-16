@@ -1,6 +1,6 @@
 import Image from "next/image";
-import Link from "next/link";
 import { YearNote } from "@/components/year-note";
+import { ProbarPlatik } from "@/components/probar-platik";
 import {
   ArrowRight,
   BarChart3,
@@ -66,13 +66,10 @@ export default function LandingPage() {
             height={42}
             className="h-9 w-auto"
           />
-          <Link
-            href="/panel"
-            className="inline-flex items-center gap-2 rounded-xl bg-petroleo px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-petroleo-800"
-          >
-            Entrar al panel
+          <ProbarPlatik className="inline-flex items-center gap-2 rounded-xl bg-petroleo px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-petroleo-800">
+            Probar PLATIK
             <ArrowRight size={16} />
-          </Link>
+          </ProbarPlatik>
         </div>
       </header>
 
@@ -105,13 +102,10 @@ export default function LandingPage() {
               saber contabilidad.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
-              <Link
-                href="/panel"
-                className="inline-flex items-center gap-2 rounded-2xl bg-petroleo px-6 py-3.5 font-semibold text-white shadow-lg shadow-petroleo/20 transition-transform hover:-translate-y-0.5 hover:bg-petroleo-800"
-              >
-                Probar la demostración
+              <ProbarPlatik className="inline-flex items-center gap-2 rounded-2xl bg-petroleo px-6 py-3.5 font-semibold text-white shadow-lg shadow-petroleo/20 transition-transform hover:-translate-y-0.5 hover:bg-petroleo-800">
+                Probar PLATIK
                 <ArrowRight size={18} />
-              </Link>
+              </ProbarPlatik>
               <span className="text-sm text-tinta-suave">
                 Sin registro · datos de ejemplo
               </span>
@@ -229,13 +223,10 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-              <Link
-                href="/panel"
-                className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-menta hover:underline"
-              >
-                Explorar con datos de demostración
+              <ProbarPlatik className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-menta hover:underline">
+                Probar PLATIK
                 <ArrowRight size={15} />
-              </Link>
+              </ProbarPlatik>
             </div>
           </div>
         </div>
@@ -293,13 +284,10 @@ export default function LandingPage() {
           <h2 className="max-w-xl text-2xl font-bold text-petroleo sm:text-3xl">
             Empieza hoy: ahorra hoy, construye mañana.
           </h2>
-          <Link
-            href="/panel"
-            className="inline-flex items-center gap-2 rounded-2xl bg-petroleo px-7 py-3.5 font-semibold text-white shadow-lg shadow-petroleo/20 transition-transform hover:-translate-y-0.5"
-          >
-            Entrar a mi panel
+          <ProbarPlatik className="inline-flex items-center gap-2 rounded-2xl bg-petroleo px-7 py-3.5 font-semibold text-white shadow-lg shadow-petroleo/20 transition-transform hover:-translate-y-0.5">
+            Probar PLATIK
             <ArrowRight size={18} />
-          </Link>
+          </ProbarPlatik>
           <p className="text-sm text-tinta-suave">
             <MessageCircle size={14} className="mr-1 inline" />
             El copiloto con IA llega en la siguiente fase.

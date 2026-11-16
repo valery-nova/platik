@@ -1,5 +1,6 @@
-import type { PlatikData, Transaction } from "./types";
+import type { DistributionCategory, PlatikData, Transaction } from "./types";
 import { haceDiasISO, hoyISO } from "./finance";
+import { categoriaPorKey, defaultDistributionForProfile } from "./distribution";
 
 let seq = 0;
 function tx(
@@ -21,9 +22,39 @@ function tx(
   };
 }
 
+function distItem(key: string, porcentaje: number): DistributionCategory {
+  const def = categoriaPorKey(key);
+  return {
+    key,
+    nombre: def?.nombre ?? key,
+    descripcion: def?.descripcion ?? "",
+    porcentaje,
+  };
+}
+
+/** Estado limpio para "Comenzar desde cero": sin datos de demostración. */
+export function buildEmptyData(): PlatikData {
+  return {
+    profile: {
+      nombreNegocio: "",
+      nombreUsuario: "",
+      moneda: "BOB",
+      onboardingDone: false,
+      betaSetupDone: false,
+    },
+    distribution: defaultDistributionForProfile(),
+    transactions: [],
+    goals: [],
+    openingBalance: null,
+    balanceAdjustments: [],
+    aportesStellar: [],
+  };
+}
+
 /**
  * Datos ficticios de demostración para un pequeño negocio boliviano.
- * Siempre se identifican como demostración en la UI.
+ * Siempre se identifican como demostración en la UI y nunca se usan como
+ * datos del usuario: la modalidad demo trabaja sobre una copia propia.
  */
 export function buildDemoData(): PlatikData {
   seq = 0;
@@ -34,11 +65,17 @@ export function buildDemoData(): PlatikData {
       moneda: "BOB",
       countryCode: "BO",
       onboardingOption: "bolivia",
+      tipoUsuario: "emprendedor",
+      betaSetupDone: true,
       // La demo arranca sin onboarding completado: la primera visita ofrece
       // elegir modalidad (Bolivia / USD / resto del mundo) antes de usar el panel.
       onboardingDone: false,
     },
-    distribution: { operacion: 55, reinversion: 25, ahorro: 20 },
+    distribution: [
+      distItem("capital_operativo", 55),
+      distItem("capital_crecimiento", 25),
+      distItem("ahorro", 20),
+    ],
     transactions: [
       // ————— hace ~3 meses
       tx("ingreso", 5200, "Ventas", "Ventas feria del mes", 96),
@@ -103,6 +140,8 @@ export function buildDemoData(): PlatikData {
         moneda: "BOB",
       },
     ],
+    openingBalance: null,
+    balanceAdjustments: [],
     aportesStellar: [],
   };
 }

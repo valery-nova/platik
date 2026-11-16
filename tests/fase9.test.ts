@@ -1,22 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  CATEGORIAS_DISTRIBUCION,
   diagnostico,
   dineroDisponible,
   interpretar,
-  montosDistribucion,
-  pctDe,
   resumenPeriodo,
-  validarDistribucion,
   variacionPct,
 } from "../lib/insights";
+import {
+  DISTRIBUTION_CATALOG,
+  montosDistribucion,
+  pctDe,
+  validarDistribucion,
+} from "../lib/distribution";
 import { gananciaNeta, margenGanancia, totalesPorCategoria } from "../lib/finance";
 import { refrescarPendientes } from "../lib/currency/refresh";
 import { RateService } from "../lib/currency/service";
 import { RateCache } from "../lib/currency/cache";
 import type { ExchangeRateProvider, ExchangeRateQuote } from "../lib/currency/rates";
-import type { Distribution, Transaction } from "../lib/types";
+import type { DistributionCategory, Transaction } from "../lib/types";
 
 const AHORA = new Date("2026-11-16T12:00:00Z");
 const ACTUAL = { desde: "2026-10-18", hasta: "2026-11-16" };
@@ -63,6 +65,18 @@ class ScriptedProvider implements ExchangeRateProvider {
 
 const servicio = (p: ExchangeRateProvider) =>
   new RateService(p, new RateCache(), undefined, () => AHORA);
+
+type DistPairs = [string, number][];
+function dist(pairs: DistPairs): DistributionCategory[] {
+  return pairs.map(([key, porcentaje]) => ({ key, nombre: key, descripcion: "", porcentaje }));
+}
+function vd(pairs: DistPairs) {
+  return validarDistribucion(dist(pairs));
+}
+function montosDist(pairs: DistPairs, disponible: number, moneda: string) {
+  const m = montosDistribucion(dist(pairs), disponible, moneda)!;
+  return { ...m.porCategoria, sinAsignar: m.sinAsignar } as Record<string, number> & { sinAsignar: number };
+}
 
 /** Datos con dos períodos comparables. */
 function negocio(): Transaction[] {
@@ -177,24 +191,24 @@ test("F9-4: sin tendencias cuando los datos son insuficientes", () => {
 
 // 5. Distribución editable y validación
 test("F9-5: validación de porcentajes y edición por monto", () => {
-  assert.equal(CATEGORIAS_DISTRIBUCION.map((c) => c.nombre).join("|"), "Capital operativo|Reinversión|Ahorro para metas futuras");
-  assert.ok(validarDistribucion({ operacion: 50, reinversion: 30, ahorro: 20 }).valida);
-  const parcial = validarDistribucion({ operacion: 40, reinversion: 20, ahorro: 10 });
+  assert.ok(DISTRIBUTION_CATALOG.some((c) => c.key === "capital_operativo" && c.nombre === "Capital operativo"));
+  assert.ok(vd([["capital_operativo", 50], ["capital_crecimiento", 30], ["ahorro", 20]]).valida);
+  const parcial = vd([["capital_operativo", 40], ["capital_crecimiento", 20], ["ahorro", 10]]);
   assert.ok(parcial.valida);
   assert.equal(parcial.sinAsignar, 30);
-  const excede = validarDistribucion({ operacion: 60, reinversion: 30, ahorro: 20 });
+  const excede = vd([["capital_operativo", 60], ["capital_crecimiento", 30], ["ahorro", 20]]);
   assert.equal(excede.valida, false);
   assert.match(excede.errores[0], /110%/);
-  assert.equal(validarDistribucion({ operacion: -5, reinversion: 50, ahorro: 20 }).valida, false);
-  assert.equal(validarDistribucion({ operacion: Number.NaN, reinversion: 50, ahorro: 20 }).valida, false);
-  assert.equal(validarDistribucion({ operacion: 101, reinversion: 0, ahorro: 0 }).valida, false);
-  const m = montosDistribucion({ operacion: 25, reinversion: 50, ahorro: 25 }, 300, "BOB")!;
-  assert.deepEqual([m.operacion, m.reinversion, m.ahorro, m.sinAsignar], [75, 150, 75, 0]);
+  assert.equal(vd([["capital_operativo", -5], ["capital_crecimiento", 50], ["ahorro", 20]]).valida, false);
+  assert.equal(vd([["capital_operativo", Number.NaN], ["capital_crecimiento", 50], ["ahorro", 20]]).valida, false);
+  assert.equal(vd([["capital_operativo", 101], ["capital_crecimiento", 0], ["ahorro", 0]]).valida, false);
+  const m = montosDist([["capital_operativo", 25], ["capital_crecimiento", 50], ["ahorro", 25]], 300, "BOB");
+  assert.deepEqual([m.capital_operativo, m.capital_crecimiento, m.ahorro, m.sinAsignar], [75, 150, 75, 0]);
   // Distribución temporalmente inválida (suma > 100): sigue mostrando importes
   // para poder corregirla por importe; el guardado queda bloqueado por validarDistribucion.
-  const invalida = { operacion: 80, reinversion: 30, ahorro: 0 };
-  assert.equal(validarDistribucion(invalida).valida, false);
-  assert.ok(montosDistribucion(invalida, 300, "BOB") !== null);
+  const invalida: DistPairs = [["capital_operativo", 80], ["capital_crecimiento", 30], ["ahorro", 0]];
+  assert.equal(vd(invalida).valida, false);
+  assert.ok(montosDistribucion(dist(invalida), 300, "BOB") !== null);
 });
 
 // 5b. Reparto exacto por importe (sin pérdida de centavos)
@@ -205,15 +219,15 @@ test("F9-5b: porcentaje y monto se corresponden sin alterar el importe", () => {
   // 100 BOB ⇒ 2,93 % (no 2,93 % que redondee a 99,91).
   const p = pct(100, disponible);
   assert.equal(p, 2.933);
-  const m = montosDistribucion({ operacion: p, reinversion: 100 - p, ahorro: 0 }, disponible, "BOB")!;
+  const m = montosDist([["capital_operativo", p], ["capital_crecimiento", 100 - p], ["ahorro", 0]], disponible, "BOB");
   // Como mucho ±1 unidad monetaria por el redondeo, y el total no excede el disponible.
-  assert.ok(m.operacion >= 99.99 && m.operacion <= 100.1);
-  assert.ok(m.reinversion >= 3309.9 && m.reinversion <= 3310.1);
+  assert.ok(m.capital_operativo >= 99.99 && m.capital_operativo <= 100.1);
+  assert.ok(m.capital_crecimiento >= 3309.9 && m.capital_crecimiento <= 3310.1);
   assert.equal(m.sinAsignar, 0);
-  assert.ok(m.operacion + m.reinversion + m.ahorro <= disponible);
+  assert.ok(m.capital_operativo + m.capital_crecimiento + m.ahorro <= disponible);
   // El reparto completo de un importe exacto en JPY (sin decimales).
-  const jpy = montosDistribucion({ operacion: pctDe(0)(400, 1000), reinversion: 0, ahorro: 0 }, 1000, "JPY")!;
-  assert.ok(jpy.operacion >= 399);
+  const jpy = montosDist([["capital_operativo", pctDe(0)(400, 1000)], ["capital_crecimiento", 0], ["ahorro", 0]], 1000, "JPY");
+  assert.ok(jpy.capital_operativo >= 399);
 });
 
 // 5c. Totales parciales: se avisa y no se presentan tendencias como completas
@@ -234,36 +248,36 @@ test("F9-5c: con cotizaciones pendientes se advierte sobre las tendencias", () =
 
 // 6. Nunca excede el disponible
 test("F9-6: la distribución nunca supera el dinero disponible (redondeo ISO)", () => {
-  const casos: [Distribution, number, string][] = [
-    [{ operacion: 33.33, reinversion: 33.33, ahorro: 33.34 }, 100.01, "BOB"],
-    [{ operacion: 50, reinversion: 50, ahorro: 0 }, 1, "JPY"],
-    [{ operacion: 33.34, reinversion: 33.33, ahorro: 33.33 }, 0.005, "KWD"],
-    [{ operacion: 16.67, reinversion: 16.67, ahorro: 66.66 }, 7, "JPY"],
+  const casos: [DistPairs, number, string][] = [
+    [[["capital_operativo", 33.33], ["capital_crecimiento", 33.33], ["ahorro", 33.34]], 100.01, "BOB"],
+    [[["capital_operativo", 50], ["capital_crecimiento", 50], ["ahorro", 0]], 1, "JPY"],
+    [[["capital_operativo", 33.34], ["capital_crecimiento", 33.33], ["ahorro", 33.33]], 0.005, "KWD"],
+    [[["capital_operativo", 16.67], ["capital_crecimiento", 16.67], ["ahorro", 66.66]], 7, "JPY"],
   ];
-  for (const [d, disp, moneda] of casos) {
-    const m = montosDistribucion(d, disp, moneda)!;
-    const suma = m.operacion + m.reinversion + m.ahorro;
+  for (const [pairs, disp, moneda] of casos) {
+    const m = montosDistribucion(dist(pairs), disp, moneda)!;
+    const suma = Object.values(m.porCategoria).reduce((a, b) => a + b, 0);
     assert.ok(suma <= disp + 1e-9, `${moneda}: ${suma} > ${disp}`);
     assert.ok(m.sinAsignar >= 0);
-    assert.ok([m.operacion, m.reinversion, m.ahorro].every((v) => v >= 0));
+    assert.ok(Object.values(m.porCategoria).every((v) => v >= 0));
   }
-  assert.equal(montosDistribucion({ operacion: 50, reinversion: 30, ahorro: 20 }, -1, "BOB"), null);
+  assert.equal(montosDistribucion(dist([["capital_operativo", 50], ["capital_crecimiento", 30], ["ahorro", 20]]), -1, "BOB"), null);
   // Reparto del 100 % de 2.01 BOB: el redondeo de centavos no deja
   // dinero sin asignar ni supera el disponible.
-  const centavos = montosDistribucion({ operacion: 50, reinversion: 50, ahorro: 0 }, 2.01, "BOB")!;
-  const sumaCentavos = centavos.operacion + centavos.reinversion + centavos.ahorro;
+  const centavos = montosDist([["capital_operativo", 50], ["capital_crecimiento", 50], ["ahorro", 0]], 2.01, "BOB");
+  const sumaCentavos = centavos.capital_operativo + centavos.capital_crecimiento + centavos.ahorro;
   assert.equal(sumaCentavos, 2.01);
   assert.equal(centavos.sinAsignar, 0);
   // Distribución temporalmente inválida (300 % sobre 300 BOB): nunca
   // asigna más de lo disponible ni genera importes negativos.
-  const exceso = montosDistribucion({ operacion: 100, reinversion: 100, ahorro: 100 }, 300, "BOB")!;
-  const sumaExceso = exceso.operacion + exceso.reinversion + exceso.ahorro;
+  const exceso = montosDist([["capital_operativo", 100], ["capital_crecimiento", 100], ["ahorro", 100]], 300, "BOB");
+  const sumaExceso = exceso.capital_operativo + exceso.capital_crecimiento + exceso.ahorro;
   assert.ok(sumaExceso <= 300);
   assert.ok(exceso.sinAsignar >= 0);
-  assert.ok([exceso.operacion, exceso.reinversion, exceso.ahorro].every((v) => v >= 0));
+  assert.ok([exceso.capital_operativo, exceso.capital_crecimiento, exceso.ahorro].every((v) => v >= 0));
   assert.equal(sumaExceso + exceso.sinAsignar, 300);
   // Reparto parcial (<100 %) sí deja el remanente sin asignar.
-  const parcial = montosDistribucion({ operacion: 40, reinversion: 20, ahorro: 10 }, 300, "BOB")!;
+  const parcial = montosDist([["capital_operativo", 40], ["capital_crecimiento", 20], ["ahorro", 10]], 300, "BOB");
   assert.equal(parcial.sinAsignar, 90);
 });
 
@@ -329,7 +343,7 @@ test("F9-9: el diagnóstico no modifica movimientos ni snapshots", () => {
   const copia = JSON.parse(JSON.stringify(txs));
   const diag = diagnostico(txs, "BOB", ACTUAL, PREVIO);
   dineroDisponible(diag.actual);
-  montosDistribucion({ operacion: 50, reinversion: 30, ahorro: 20 }, diag.disponible.monto ?? 0, "BOB");
+  montosDist([["capital_operativo", 50], ["capital_crecimiento", 30], ["ahorro", 20]], diag.actual.ganancia, "BOB");
   assert.deepEqual(txs, copia);
   // El snapshot histórico (6.86) se usa tal cual, sin recalcular.
   assert.equal(diag.actual.ingresos, 1200 + 686);
