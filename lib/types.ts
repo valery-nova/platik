@@ -1,4 +1,5 @@
 import type { AporteStellar } from "./stellar/types";
+import type { RateType } from "./currency/rates";
 
 export type { AporteStellar } from "./stellar/types";
 
@@ -26,10 +27,14 @@ export interface Transaction {
   baseCurrency?: string;
   /** Tasa aplicada (unidades de baseCurrency por 1 unidad de `moneda`). */
   exchangeRate?: number;
-  /** Fuente de la cotización (ej. "bcb-bo"). */
+  /** Fuente de la cotización (ej. "frankfurter"). */
   exchangeRateSource?: string;
   /** Fecha ISO de la cotización utilizada. */
   exchangeRateDate?: string;
+  /** Tipo de cotización aplicada (reference, mid, buy, sell, executable). */
+  exchangeRateType?: RateType;
+  /** Fecha de publicación del dato de cotización (ISO), si la fuente la define. */
+  exchangeRatePublishedAt?: string;
 }
 
 /** Meta de ahorro en moneda fiduciaria (Bs, USD, MXN…). */

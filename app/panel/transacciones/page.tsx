@@ -29,9 +29,10 @@ import { currencyDigits, currencyName, currencyStep, listCurrencies } from "@/li
 import { roundToCurrency } from "@/lib/currency/decimal";
 import {
   buildConversionFields,
-  getExchangeRateProvider,
   type ConversionFields,
 } from "@/lib/currency/rates";
+import { getRateService } from "@/lib/currency/service";
+import { EquivalenciaSecundaria } from "@/components/equivalencia";
 import type { Transaction, TxType } from "@/lib/types";
 
 const TIPO_LABEL: Record<TxType, string> = {
@@ -58,15 +59,17 @@ const FORM_INICIAL: FormState = {
   fecha: "",
 };
 
-/** Campos de conversión del movimiento (vacío si no hay cotización válida). */
+/**
+ * Campos de conversión del movimiento (vacío si no hay cotización válida
+ * y vigente). Usa el motor global: proveedor + caché + vigencia.
+ */
 async function conversionFor(
   from: string,
   to: string,
   amount: number,
-): Promise<ReturnType<typeof buildConversionFields>> {
+): Promise<ConversionFields> {
   if (from.toUpperCase() === to.toUpperCase()) return {};
-  const provider = getExchangeRateProvider();
-  const quote = await provider.getRate(from.toUpperCase(), to.toUpperCase());
+  const { quote } = await getRateService().quote(from, to);
   return buildConversionFields(from, to, amount, quote);
 }
 
@@ -90,6 +93,10 @@ function conversionPreviaDe(
     out.exchangeRateSource = orig.exchangeRateSource;
   if (typeof orig.exchangeRateDate === "string")
     out.exchangeRateDate = orig.exchangeRateDate;
+  if (typeof orig.exchangeRateType === "string")
+    out.exchangeRateType = orig.exchangeRateType as ConversionFields["exchangeRateType"];
+  if (typeof orig.exchangeRatePublishedAt === "string")
+    out.exchangeRatePublishedAt = orig.exchangeRatePublishedAt;
   return out;
 }
 
@@ -400,14 +407,22 @@ export default function TransaccionesPage() {
                     )}
                   </p>
                 </div>
-                <p
-                  className={`shrink-0 text-sm font-semibold sm:text-base ${
-                    t.tipo === "ingreso" ? "text-menta-700" : "text-coral-600"
-                  }`}
-                >
-                  {t.tipo === "ingreso" ? "+" : "−"}
-                  {formatMoney(t.monto, t.moneda)}
-                </p>
+                <div className="shrink-0 text-right">
+                  <p
+                    className={`text-sm font-semibold sm:text-base ${
+                      t.tipo === "ingreso" ? "text-menta-700" : "text-coral-600"
+                    }`}
+                  >
+                    {t.tipo === "ingreso" ? "+" : "−"}
+                    {formatMoney(t.monto, t.moneda)}
+                  </p>
+                  <EquivalenciaSecundaria
+                    monto={t.monto}
+                    moneda={t.moneda}
+                    displayMoneda={data.profile.displayCurrency}
+                    compact
+                  />
+                </div>
                 <div className="flex shrink-0 gap-1">
                   <button
                     onClick={() => setModal(t)}
@@ -461,13 +476,24 @@ export default function TransaccionesPage() {
             onSubmit={(f) => {
               void (async () => {
                 const monto = roundToCurrency(Number(f.monto), currencyDigits(f.moneda));
-                const conversion = await conversionFor(f.moneda, moneda, monto);
-                // Si no hubo cotización nueva al editar, conservamos el
-                // snapshot histórico cuando importe y moneda no cambiaron.
-                const preservado =
-                  modal !== "nueva" && Object.keys(conversion).length === 0
-                    ? conversionPreviaDe(modal, f.moneda, monto)
-                    : {};
+                // Al editar sin cambiar importe ni moneda se preserva el
+                // snapshot histórico tal cual; solo se busca cotización
+                // nueva si nunca hubo snapshot o si cambió algo.
+                const editando = modal !== "nueva" ? modal : null;
+                const sinCambios =
+                  editando !== null &&
+                  editando.monto === monto &&
+                  editando.moneda === f.moneda;
+                let conversion: ConversionFields = {};
+                if (editando && sinCambios) {
+                  const preservado = conversionPreviaDe(editando, f.moneda, monto);
+                  conversion =
+                    Object.keys(preservado).length > 0
+                      ? preservado
+                      : await conversionFor(f.moneda, moneda, monto);
+                } else {
+                  conversion = await conversionFor(f.moneda, moneda, monto);
+                }
                 const tx = {
                   tipo: f.tipo,
                   monto,
@@ -475,7 +501,6 @@ export default function TransaccionesPage() {
                   categoria: f.categoria,
                   descripcion: f.descripcion.trim(),
                   fecha: f.fecha,
-                  ...preservado,
                   ...conversion,
                 };
                 if (modal === "nueva") {

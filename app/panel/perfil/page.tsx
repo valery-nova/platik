@@ -168,7 +168,7 @@ export default function PerfilPage() {
               </Field>
               <Field
                 label="Moneda de visualización"
-                hint="Opcional: solo cambia cómo se muestran los montos, nunca los valores."
+                hint="Opcional: muestra equivalencias informativas (≈) con cotización de referencia. Nunca altera tus valores reales."
               >
                 <Select
                   value={form.displayCurrency ?? ""}

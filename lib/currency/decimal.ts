@@ -133,3 +133,24 @@ export function applyRate(
 export function roundToCurrency(amount: number, digits: number): number {
   return fromScaled(toScaled(amount, digits), digits);
 }
+
+/**
+ * Multiplica dos tasas (o cualquier par de decimales) con precisión
+ * controlada y redondeo half-up a `decimals` decimales. Se usa para
+ * construir tasas cruzadas sin arrastrar polvo de punto flotante.
+ */
+export function multiplyDecimals(
+  a: number,
+  b: number,
+  decimals = 8,
+): number {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    throw new Error("Factores no válidos.");
+  }
+  if (a <= 0 || b <= 0) throw new Error("Los factores deben ser positivos.");
+  const sa = toScaled(a, decimals);
+  const sb = toScaled(b, decimals);
+  const product = sa * sb;
+  const scaled = divRoundHalfUp(product, pow10(decimals));
+  return fromScaled(scaled, decimals);
+}

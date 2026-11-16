@@ -39,6 +39,14 @@ export function migrateTransaction(tx: Partial<Transaction>): Transaction {
   if (typeof tx.exchangeRateDate === "string" && tx.exchangeRateDate) {
     out.exchangeRateDate = tx.exchangeRateDate;
   }
+  // Trazabilidad ampliada (Fase 8): tipo de tasa y fecha de publicación.
+  const TIPOS_TASA = new Set(["reference", "mid", "buy", "sell", "executable"]);
+  if (typeof tx.exchangeRateType === "string" && TIPOS_TASA.has(tx.exchangeRateType)) {
+    out.exchangeRateType = tx.exchangeRateType as Transaction["exchangeRateType"];
+  }
+  if (typeof tx.exchangeRatePublishedAt === "string" && tx.exchangeRatePublishedAt) {
+    out.exchangeRatePublishedAt = tx.exchangeRatePublishedAt;
+  }
   return out;
 }
 

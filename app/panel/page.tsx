@@ -21,6 +21,10 @@ import {
   ProgressBar,
 } from "@/components/ui";
 import { DistribucionChart, IngresosEgresosChart } from "@/components/charts";
+import {
+  BotonActualizarCotizaciones,
+  EquivalenciaSecundaria,
+} from "@/components/equivalencia";
 import { usePlatik } from "@/lib/store";
 import {
   gananciaNeta,
@@ -91,6 +95,10 @@ export default function DashboardPage() {
   const ultimas = ultimasTransacciones(transactions, 6);
 
   const ganancia = neta.ganancia;
+  const displayMoneda = profile.displayCurrency?.toUpperCase();
+  const mostrarEquivalencia =
+    !!displayMoneda && displayMoneda !== moneda.toUpperCase();
+  const totalIngresos6m = serie.reduce((a, s) => a + s.ingresos, 0);
   const distribucion = [
     { nombre: "Operación", valor: Math.max(0, (ganancia * distribution.operacion) / 100) },
     { nombre: "Reinversión", valor: Math.max(0, (ganancia * distribution.reinversion) / 100) },
@@ -147,11 +155,42 @@ export default function DashboardPage() {
       {/* Aviso de movimientos pendientes de conversión */}
       {neta.pendientes > 0 && (
         <Card className="border-lavanda-300 bg-lavanda-50 p-4">
-          <p className="text-sm text-petroleo">
-            <strong>{neta.pendientes}</strong> movimiento(s) en otra moneda aún no
-            tienen cotización válida y no se incluyen en los totales. Se
-            conservan con su importe original; no inventamos equivalencias.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="max-w-2xl text-sm text-petroleo">
+              <strong>{neta.pendientes}</strong> movimiento(s) en otra moneda aún
+              no tienen cotización válida y no se incluyen en los totales. Se
+              conservan con su importe original; no inventamos equivalencias.
+            </p>
+            <BotonActualizarCotizaciones />
+          </div>
+        </Card>
+      )}
+
+      {/* Equivalencia informativa en la moneda de visualización */}
+      {mostrarEquivalencia && (
+        <Card className="p-5">
+          <CardHeader
+            title="Equivalencia informativa"
+            subtitle={`Solo lectura en ${displayMoneda}: no altera tus saldos reales ni tus metas.`}
+          />
+          <div className="space-y-2 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-tinta-suave">Ganancia neta estimada (30 días)</span>
+              <span className="font-semibold text-petroleo">
+                {formatMoney(ganancia, moneda)}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="pl-3 text-xs text-tinta-suave">
+                Equivalencia aproximada
+              </span>
+              <EquivalenciaSecundaria
+                monto={ganancia}
+                moneda={moneda}
+                displayMoneda={displayMoneda}
+              />
+            </div>
+          </div>
         </Card>
       )}
 
@@ -171,6 +210,18 @@ export default function DashboardPage() {
             }
           />
           <IngresosEgresosChart serie={serie} moneda={moneda} />
+          {mostrarEquivalencia && (
+            <p className="mt-2 text-xs text-tinta-suave">
+              Equivalencia informativa de los ingresos de 6 meses (
+              {formatMoney(totalIngresos6m, moneda)}):{" "}
+              <EquivalenciaSecundaria
+                monto={totalIngresos6m}
+                moneda={moneda}
+                displayMoneda={displayMoneda}
+                compact
+              />
+            </p>
+          )}
         </Card>
 
         {/* Distribución sugerida */}

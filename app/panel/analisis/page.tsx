@@ -4,6 +4,10 @@ import Image from "next/image";
 import { Info, TrendingDown, TrendingUp } from "lucide-react";
 import { Card, CardHeader, DemoBadge, PanelSkeleton } from "@/components/ui";
 import { EvolucionChart, DistribucionChart } from "@/components/charts";
+import {
+  BotonActualizarCotizaciones,
+  EquivalenciaSecundaria,
+} from "@/components/equivalencia";
 import { usePlatik } from "@/lib/store";
 import {
   gananciaNeta,
@@ -44,6 +48,10 @@ export default function AnalisisPage() {
       : 0;
 
   const serie = serieMensual(txs, 6, hoyISO(), moneda);
+  const totalIngresos6m = serie.reduce((a, s) => a + s.ingresos, 0);
+  const displayMoneda = data.profile.displayCurrency?.toUpperCase();
+  const mostrarEquivalencia =
+    !!displayMoneda && displayMoneda !== moneda.toUpperCase();
   const topGastos = totalesPorCategoria(ultimos30, moneda, ["gasto", "costo"]);
   const mayorGasto = topGastos[0];
   const topIngresos = totalesPorCategoria(ultimos30, moneda, ["ingreso"])[0];
@@ -115,12 +123,47 @@ export default function AnalisisPage() {
           parciales y no deben presentarse como el periodo completo. */}
       {neta.pendientes > 0 && (
         <Card className="border-lavanda-300 bg-lavanda-50 p-4">
-          <p className="text-sm text-petroleo">
-            <strong>{neta.pendientes}</strong> movimiento(s) en otra moneda aún
-            no tienen cotización válida y <strong>no se incluyen</strong> en los
-            totales ni en las explicaciones de abajo. Se conservan con su
-            importe original; no inventamos equivalencias.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="max-w-2xl text-sm text-petroleo">
+              <strong>{neta.pendientes}</strong> movimiento(s) en otra moneda aún
+              no tienen cotización válida y <strong>no se incluyen</strong> en los
+              totales ni en las explicaciones de abajo. Se conservan con su
+              importe original; no inventamos equivalencias.
+            </p>
+            <BotonActualizarCotizaciones />
+          </div>
+        </Card>
+      )}
+
+      {/* Equivalencias informativas en la moneda de visualización */}
+      {mostrarEquivalencia && (
+        <Card className="p-5">
+          <CardHeader
+            title="Equivalencias informativas"
+            subtitle={`Solo lectura en ${displayMoneda}: no altera tus cifras reales.`}
+          />
+          <div className="space-y-2 text-sm">
+            {[
+              { etiqueta: "Ingresos (30 días)", monto: ingresos.total },
+              { etiqueta: "Egresos (30 días)", monto: egresos.total },
+              { etiqueta: "Ganancia neta (30 días)", monto: gananciaNetaValor },
+            ].map((f) => (
+              <div
+                key={f.etiqueta}
+                className="flex flex-wrap items-center justify-between gap-2"
+              >
+                <span className="text-tinta-suave">{f.etiqueta}</span>
+                <span className="font-semibold text-petroleo">
+                  {formatMoney(f.monto, moneda)}{" "}
+                  <EquivalenciaSecundaria
+                    monto={f.monto}
+                    moneda={moneda}
+                    displayMoneda={displayMoneda}
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
         </Card>
       )}
 
@@ -172,6 +215,18 @@ export default function AnalisisPage() {
             subtitle="Ingresos y ganancia neta por mes"
           />
           <EvolucionChart serie={serie} moneda={moneda} />
+          {mostrarEquivalencia && (
+            <p className="mt-2 text-xs text-tinta-suave">
+              Equivalencia informativa de los ingresos de 6 meses (
+              {formatMoney(totalIngresos6m, moneda)}):{" "}
+              <EquivalenciaSecundaria
+                monto={totalIngresos6m}
+                moneda={moneda}
+                displayMoneda={displayMoneda}
+                compact
+              />
+            </p>
+          )}
         </Card>
 
         {/* Categorías de egreso */}

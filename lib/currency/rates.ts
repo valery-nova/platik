@@ -5,15 +5,31 @@
  * proveedor devuelve null y el movimiento se registra con su moneda
  * original, marcado como pendiente de conversión.
  *
- * Fuentes previstas (Fase 8 integrará la automática):
- * - BOB: Banco Central de Bolivia (referencia oficial).
- * - USD/EUR y pares globales: fuentes oficiales por país/bloque.
- * - Otras monedas: fuente oficial del país emisor cuando exista.
+ * Proveedor automático (Fase 8): Frankfurter (tasas de referencia de
+ * bancos centrales y fuentes oficiales; incluye la tasa oficial del BCB
+ * para BOB). Ver lib/currency/frankfurter.ts y lib/currency/service.ts.
  */
 import { isCurrencyCode, currencyDigits } from "./catalog";
 import { applyRate } from "./decimal";
 
 export type RateStatus = "valid" | "expired" | "unavailable";
+
+/**
+ * Tipo de cotización. Nunca se etiqueta una referencia como compra/venta:
+ * solo `buy`/`sell` si el proveedor publica ese precio, y `executable`
+ * únicamente si el proveedor es transaccional.
+ */
+export type RateType = "reference" | "mid" | "buy" | "sell" | "executable";
+
+/** Una pata de una tasa cruzada (trazabilidad de los datos originales). */
+export interface ExchangeRateLeg {
+  from: string;
+  to: string;
+  rate: number;
+  provider: string;
+  providerName: string;
+  publishedAt?: string;
+}
 
 export interface ExchangeRateQuote {
   /** Moneda origen (ISO 4217). */
@@ -22,14 +38,24 @@ export interface ExchangeRateQuote {
   to: string;
   /** Unidades de `to` por 1 unidad de `from`. */
   rate: number;
-  /** Identificador estable de la fuente (ej. "bcb-bo"). */
+  /** Identificador estable de la fuente (ej. "frankfurter"). */
   provider: string;
   /** Nombre legible de la fuente. */
   providerName: string;
   /** Fecha y hora (ISO 8601) en que se consultó la fuente. */
   fetchedAt: string;
+  /** Fecha de publicación del dato (ISO 8601), si la fuente la define. */
+  publishedAt?: string;
+  /** Tipo de tasa: reference, mid, buy, sell o executable. */
+  rateType?: RateType;
   /** Fecha de vigencia de la cotización (ISO 8601), si la fuente la define. */
   validUntil?: string;
+  /** Moneda pivote usada en una tasa cruzada, si aplica. */
+  viaCurrency?: string;
+  /** Patas originales de una tasa cruzada (trazabilidad). */
+  legs?: ExchangeRateLeg[];
+  /** Fuentes subyacentes identificadas por el agregador (ej. ["BCBO"]). */
+  underlyingProviders?: string[];
   status: RateStatus;
 }
 
@@ -48,9 +74,8 @@ export interface ExchangeRateProvider {
 }
 
 /**
- * Proveedor por defecto: no hay integración automática en esta fase.
- * Devuelve null siempre, de modo que los movimientos multi-moneda se
- * registran con su moneda original y quedan pendientes de conversión.
+ * Proveedor inactivo: siempre devuelve null. Útil como respaldo explícito;
+ * la app usa el motor de cotizaciones (lib/currency/service.ts).
  */
 export class UnavailableRateProvider implements ExchangeRateProvider {
   readonly id = "none";
@@ -82,12 +107,12 @@ export class ManualRateProvider implements ExchangeRateProvider {
 
 let activeProvider: ExchangeRateProvider = new UnavailableRateProvider();
 
-/** Proveedor activo (por defecto, ninguno hasta que Fase 8 lo configure). */
+/** Proveedor activo del contrato ExchangeRateProvider (pruebas/manual). */
 export function getExchangeRateProvider(): ExchangeRateProvider {
   return activeProvider;
 }
 
-/** Permite registrar un proveedor (Fase 8 lo usará con fuentes reales). */
+/** Permite registrar un proveedor (pruebas u otras fuentes futuras). */
 export function setExchangeRateProvider(provider: ExchangeRateProvider): void {
   activeProvider = provider;
 }
@@ -98,6 +123,10 @@ export interface ConversionFields {
   exchangeRate?: number;
   exchangeRateSource?: string;
   exchangeRateDate?: string;
+  /** Tipo de cotización aplicada (reference, mid, buy, sell, executable). */
+  exchangeRateType?: RateType;
+  /** Fecha de publicación del dato de cotización (ISO), si la fuente la define. */
+  exchangeRatePublishedAt?: string;
 }
 
 /**
@@ -125,5 +154,7 @@ export function buildConversionFields(
     exchangeRate: quote.rate,
     exchangeRateSource: quote.provider,
     exchangeRateDate: quote.fetchedAt,
+    exchangeRateType: quote.rateType ?? "reference",
+    exchangeRatePublishedAt: quote.publishedAt,
   };
 }

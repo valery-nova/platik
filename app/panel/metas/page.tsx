@@ -21,6 +21,7 @@ import { currencyDigits, currencyStep, listCurrencies } from "@/lib/currency/cat
 import { roundToCurrency } from "@/lib/currency/decimal";
 import type { Goal } from "@/lib/types";
 import { StellarAhorro } from "@/components/stellar-ahorro";
+import { EquivalenciaSecundaria } from "@/components/equivalencia";
 
 interface GoalFormState {
   nombre: string;
@@ -151,6 +152,9 @@ export default function MetasPage() {
 
   if (!hydrated) return <PanelSkeleton />;
   const moneda = data.profile.moneda;
+  const displayMoneda = data.profile.displayCurrency?.toUpperCase();
+  const mostrarEquivalencia =
+    !!displayMoneda && displayMoneda !== moneda.toUpperCase();
 
   function notify(msg: string) {
     setAviso(msg);
@@ -233,6 +237,16 @@ export default function MetasPage() {
                     de {formatMoney(g.montoObjetivo, g.moneda)}
                   </span>
                 </p>
+                {mostrarEquivalencia && g.moneda.toUpperCase() !== displayMoneda && (
+                  <p className="mt-1 text-xs text-tinta-suave">
+                    <EquivalenciaSecundaria
+                      monto={g.ahorroAcumulado}
+                      moneda={g.moneda}
+                      displayMoneda={displayMoneda}
+                      compact
+                    />
+                  </p>
+                )}
                 <div className="mt-3">
                   <ProgressBar
                     value={pct}
