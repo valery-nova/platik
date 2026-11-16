@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowRight, PlayCircle, Sparkles } from "lucide-react";
 import { writeMode, type PlatikMode } from "@/lib/storage";
@@ -48,7 +49,7 @@ export function ProbarPlatik({
       <button type="button" onClick={() => setOpen(true)} className={className}>
         {children}
       </button>
-      {open && (
+      {open && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-petroleo/50 p-4 backdrop-blur-sm sm:items-center"
           role="dialog"
@@ -88,7 +89,8 @@ export function ProbarPlatik({
               La demostración con datos de ejemplo siempre está disponible.
             </p>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
