@@ -28,8 +28,8 @@ import { haceDiasISO, hoyISO } from "@/lib/finance";
 import {
   CATEGORIAS_DISTRIBUCION,
   dineroDisponible,
+  pctDe,
   montosDistribucion,
-  porcentajeDesdeMonto,
   resumenPeriodo,
   validarDistribucion,
   type CategoriaDistribucion,
@@ -71,8 +71,10 @@ export default function PerfilPage() {
     resumenPeriodo(data.transactions, monedaPrincipal, haceDiasISO(29), hoyISO()),
   );
   const validacion = validarDistribucion(dist);
+  // Los importes se muestran siempre que haya disponible (aun con una
+  // distribución temporalmente inválida) para poder corregirla por importe.
   const montos =
-    disponible.monto !== null
+    disponible.monto !== null && disponible.monto > 0
       ? montosDistribucion(dist, disponible.monto, monedaPrincipal)
       : null;
   const paso = 1 / 10 ** currencyDigits(monedaPrincipal);
@@ -81,11 +83,11 @@ export default function PerfilPage() {
     if (disponible.monto === null || disponible.monto <= 0) return;
     const monto = Number(valor);
     // Un importe mayor que el disponible se limita al disponible.
-    const pct = porcentajeDesdeMonto(
+    const pct = pctDe(currencyDigits(monedaPrincipal))(
       Math.min(Number.isFinite(monto) ? monto : 0, disponible.monto),
       disponible.monto,
     );
-    if (pct !== null) setDist((d) => ({ ...d, [key]: pct }));
+    setDist((d) => ({ ...d, [key]: pct }));
   }
 
   function notify(msg: string) {
@@ -245,7 +247,9 @@ export default function PerfilPage() {
             </p>
           </div>
           <div className="space-y-4">
-            {CATEGORIAS_DISTRIBUCION.map(({ key, nombre, descripcion }) => (
+            {CATEGORIAS_DISTRIBUCION.map(({ key, nombre, descripcion }) => {
+              const importe = montos ? montos[key] : null;
+              return (
               <Field key={key} label={nombre} hint={descripcion}>
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-1.5">
@@ -253,7 +257,7 @@ export default function PerfilPage() {
                       type="number"
                       min={0}
                       max={100}
-                      step={0.01}
+                      step={0.001}
                       aria-label={`${nombre} en porcentaje`}
                       value={dist[key]}
                       onChange={(e) =>
@@ -263,35 +267,32 @@ export default function PerfilPage() {
                     />
                     <span className="text-sm text-tinta-suave">%</span>
                   </div>
-                  {montos && disponible.monto !== null && disponible.monto > 0 ? (
+                  {montos ? (
                     <div className="flex items-center gap-1.5">
                       <Input
                         type="number"
                         min={0}
-                        max={disponible.monto}
+                        max={disponible.monto ?? undefined}
                         step={paso}
                         aria-label={`${nombre} en ${monedaPrincipal}`}
-                        value={montos[key]}
+                        value={importe ?? 0}
                         onChange={(e) => editarMonto(key, e.target.value)}
                         className="w-36"
                       />
                       <span className="text-sm text-tinta-suave">{monedaPrincipal}</span>
                     </div>
-                  ) : (
-                    <span className="text-xs text-tinta-suave">
-                      Sin importe: no hay dinero disponible que repartir.
-                    </span>
-                  )}
+                  ) : null}
                 </div>
               </Field>
-            ))}
+              );
+            })}
             <div>
               <div className="mb-1.5 flex justify-between text-xs">
                 <span className="text-tinta-suave">Total asignado</span>
                 <span
                   className={`font-semibold ${validacion.valida ? "text-menta-700" : "text-coral-600"}`}
                 >
-                  {validacion.total}%
+                  {Math.round(validacion.total * 10) / 10}%
                 </span>
               </div>
               <ProgressBar

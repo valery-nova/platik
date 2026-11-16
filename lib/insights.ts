@@ -191,6 +191,8 @@ export interface Hallazgo {
 
 export interface EntradaInterpretacion {
   actual: ResumenPeriodo;
+  /** Los cálculos asumen que no hay egresos/ingresos excluidos por falta de cotización. */
+  totalesCompletos?: boolean;
   previo: ResumenPeriodo;
   /** Egresos (costos + gastos) por categoría del período actual. */
   categoriasEgreso: CategoriaTotal[];
@@ -207,8 +209,11 @@ export function interpretar({
   previo,
   categoriasEgreso,
   categoriasIngreso,
+  totalesCompletos = true,
 }: EntradaInterpretacion): Hallazgo[] {
+  const entradaTotalesCompletos = totalesCompletos;
   const m = actual.moneda;
+  const completos = entradaTotalesCompletos;
   const money = (v: number) => formatMoney(v, m);
   const out: Hallazgo[] = [];
   const pendientes = actual.pendientesIngresos + actual.pendientesEgresos;
@@ -295,6 +300,15 @@ export function interpretar({
       );
     }
     const vEgr = variacionPct(actual.egresos, previo.egresos);
+    if (!completos) {
+      out.push({
+        id: "tendencias_parciales",
+        tono: "info",
+        texto:
+          "Hay movimientos sin cotización válida excluidos de los totales. Las variaciones y tendencias de abajo pueden no reflejar el negocio completo; actualiza las cotizaciones.",
+        calculo: "Totales parciales",
+      });
+    }
     if (vEgr !== null && Math.abs(vEgr) >= UMBRAL_VARIACION_PCT) {
       out.push({
         id: vEgr > 0 ? "egresos_suben" : "egresos_bajan",
@@ -361,6 +375,10 @@ function hallazgoPendientes(n: number): Hallazgo {
   };
 }
 
+function tienePendientes(r: ResumenPeriodo): boolean {
+  return r.pendientesIngresos + r.pendientesEgresos > 0;
+}
+
 /** Atajo: resumen + interpretación de dos ventanas contiguas. */
 export function diagnostico(
   txs: Transaction[],
@@ -376,7 +394,16 @@ export function diagnostico(
     previo: rPrevio,
     categoriasEgreso: totalesPorCategoria(enRango, moneda, ["gasto", "costo"]),
     categoriasIngreso: totalesPorCategoria(enRango, moneda, ["ingreso"]),
+    totalesCompletos: !tienePendientes(rActual) && !tienePendientes(rPrevio),
   });
+  if (tienePendientes(rPrevio) && !tienePendientes(rActual)) {
+    hallazgos.push({
+      id: "pendientes_conversion",
+      tono: "info",
+      texto: `El período anterior tiene ${rPrevio.pendientesIngresos + rPrevio.pendientesEgresos} movimiento(s) sin cotización válida excluidos: la comparación con el período actual es parcial.`,
+      calculo: "Período anterior parcial",
+    });
+  }
   return { actual: rActual, previo: rPrevio, disponible: dineroDisponible(rActual), hallazgos };
 }
 
@@ -447,44 +474,58 @@ export interface MontosDistribucion {
   moneda: string;
 }
 
+/** Decimales del porcentaje interno: tres evitan pérdida de centavos al repartir. */
+export const DECIMALES_PORCENTAJE = 3;
+
+/**
+ * Porcentaje (3 decimales) equivalente a un importe de la moneda principal,
+ * redondeado a la unidad monetaria. Al repartir de nuevo se recupera el
+ * mismo importe salvo un redondeo de ±1 unidad (ajustado en montosDistribucion).
+ */
+export function pctDe(digits: number) {
+  const f = 10 ** digits;
+  const k = 10 ** DECIMALES_PORCENTAJE;
+  return (monto: number, base: number) => {
+    if (!(base > 0)) return 0;
+    const red = Math.round(monto * f) / f;
+    if (red <= 0) return 0;
+    // Hacia arriba: al repartir, el importe nunca queda por debajo del introducido.
+    return Math.ceil(((red / base) * 100) * k - 1e-9) / k;
+  };
+}
+
 /**
  * Importes de cada categoría sobre el dinero disponible, redondeados a los
  * decimales ISO de la moneda. La suma nunca supera el disponible: si el
  * redondeo la excede, el ajuste se descuenta de la categoría mayor.
- * Devuelve null si la distribución no es válida o el disponible no es
- * un número finito ≥ 0.
+ * Calcula los importes aunque la distribución no sea válida (suma > 100):
+ * la interfaz necesita seguir mostrando los campos para que el usuario la
+ * corrija. Devuelve null solo si el disponible no es un número finito ≥ 0.
  */
 export function montosDistribucion(
   d: Distribution,
   disponible: number,
   moneda: string,
 ): MontosDistribucion | null {
-  if (!validarDistribucion(d).valida) return null;
   if (!Number.isFinite(disponible) || disponible < 0) return null;
   const digits = currencyDigits(moneda);
   const base = roundToCurrency(disponible, digits);
+  const step = 1 / 10 ** digits;
+  // Importe de una categoría: porcentaje → unidades monetarias redondeadas.
+  const amount = (p: number) => Math.round(((base * p) / 100 / step)) * step;
   const montos = {
-    operacion: roundToCurrency((base * d.operacion) / 100, digits),
-    reinversion: roundToCurrency((base * d.reinversion) / 100, digits),
-    ahorro: roundToCurrency((base * d.ahorro) / 100, digits),
+    operacion: roundToCurrency(amount(d.operacion), digits),
+    reinversion: roundToCurrency(amount(d.reinversion), digits),
+    ahorro: roundToCurrency(amount(d.ahorro), digits),
   };
   const suma = roundToCurrency(montos.operacion + montos.reinversion + montos.ahorro, digits);
   if (suma > base) {
     const mayor = (Object.keys(montos) as CategoriaDistribucion[]).reduce((a, b) =>
       montos[b] > montos[a] ? b : a,
     );
-    montos[mayor] = roundToCurrency(montos[mayor] - (suma - base), digits);
+    montos[mayor] = roundToCurrency(Math.max(0, montos[mayor] - (suma - base)), digits);
   }
   const asignado = roundToCurrency(montos.operacion + montos.reinversion + montos.ahorro, digits);
   return { ...montos, sinAsignar: roundToCurrency(base - asignado, digits), moneda: moneda.toUpperCase() };
 }
 
-/**
- * Porcentaje equivalente a un importe sobre el disponible (2 decimales).
- * null si el importe es inválido, negativo o mayor que el disponible.
- */
-export function porcentajeDesdeMonto(monto: number, disponible: number): number | null {
-  if (!Number.isFinite(monto) || !Number.isFinite(disponible)) return null;
-  if (disponible <= 0 || monto < 0 || monto > disponible) return null;
-  return Math.round((monto / disponible) * 10000) / 100;
-}

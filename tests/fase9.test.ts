@@ -6,7 +6,7 @@ import {
   dineroDisponible,
   interpretar,
   montosDistribucion,
-  porcentajeDesdeMonto,
+  pctDe,
   resumenPeriodo,
   validarDistribucion,
   variacionPct,
@@ -188,14 +188,48 @@ test("F9-5: validación de porcentajes y edición por monto", () => {
   assert.equal(validarDistribucion({ operacion: -5, reinversion: 50, ahorro: 20 }).valida, false);
   assert.equal(validarDistribucion({ operacion: Number.NaN, reinversion: 50, ahorro: 20 }).valida, false);
   assert.equal(validarDistribucion({ operacion: 101, reinversion: 0, ahorro: 0 }).valida, false);
-  // Monto → porcentaje y vuelta.
-  assert.equal(porcentajeDesdeMonto(75, 300), 25);
-  assert.equal(porcentajeDesdeMonto(301, 300), null);
-  assert.equal(porcentajeDesdeMonto(-1, 300), null);
-  assert.equal(porcentajeDesdeMonto(10, 0), null);
   const m = montosDistribucion({ operacion: 25, reinversion: 50, ahorro: 25 }, 300, "BOB")!;
   assert.deepEqual([m.operacion, m.reinversion, m.ahorro, m.sinAsignar], [75, 150, 75, 0]);
-  assert.equal(montosDistribucion({ operacion: 80, reinversion: 30, ahorro: 0 }, 300, "BOB"), null);
+  // Distribución temporalmente inválida (suma > 100): sigue mostrando importes
+  // para poder corregirla por importe; el guardado queda bloqueado por validarDistribucion.
+  const invalida = { operacion: 80, reinversion: 30, ahorro: 0 };
+  assert.equal(validarDistribucion(invalida).valida, false);
+  assert.ok(montosDistribucion(invalida, 300, "BOB") !== null);
+});
+
+// 5b. Reparto exacto por importe (sin pérdida de centavos)
+test("F9-5b: porcentaje y monto se corresponden sin alterar el importe", () => {
+  const d = 10 ** 2; // BOB
+  const pct = pctDe(d);
+  const disponible = 3410;
+  // 100 BOB ⇒ 2,93 % (no 2,93 % que redondee a 99,91).
+  const p = pct(100, disponible);
+  assert.equal(p, 2.933);
+  const m = montosDistribucion({ operacion: p, reinversion: 100 - p, ahorro: 0 }, disponible, "BOB")!;
+  // Como mucho ±1 unidad monetaria por el redondeo, y el total no excede el disponible.
+  assert.ok(m.operacion >= 99.99 && m.operacion <= 100.1);
+  assert.ok(m.reinversion >= 3309.9 && m.reinversion <= 3310.1);
+  assert.equal(m.sinAsignar, 0);
+  assert.ok(m.operacion + m.reinversion + m.ahorro <= disponible);
+  // El reparto completo de un importe exacto en JPY (sin decimales).
+  const jpy = montosDistribucion({ operacion: pctDe(0)(400, 1000), reinversion: 0, ahorro: 0 }, 1000, "JPY")!;
+  assert.ok(jpy.operacion >= 399);
+});
+
+// 5c. Totales parciales: se avisa y no se presentan tendencias como completas
+test("F9-5c: con cotizaciones pendientes se advierte sobre las tendencias", () => {
+  const txs = [
+    ...negocio(),
+    tx({ tipo: "gasto", monto: 100, moneda: "USD", categoria: "SaaS", fecha: "2026-11-05" }),
+    tx({ tipo: "gasto", monto: 200, moneda: "EUR", categoria: "Oficina", fecha: "2026-10-05" }),
+  ];
+  const { hallazgos } = diagnostico(txs, "BOB", ACTUAL, PREVIO);
+  const ids = hallazgos.map((h) => h.id);
+  assert.ok(ids.includes("tendencias_parciales"));
+  assert.ok(ids.includes("pendientes_conversion"));
+  // Las tendencias se siguen mostrando (con la advertencia), pero con cálculo visible.
+  assert.ok(ids.includes("egresos_suben"));
+  assert.ok(hallazgos.every((h) => h.calculo.length > 0));
 });
 
 // 6. Nunca excede el disponible
