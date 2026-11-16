@@ -9,19 +9,30 @@ import {
 } from "react";
 import type { AporteStellar } from "./stellar/types";
 import type {
-  Distribution,
+  BalanceAdjustment,
+  DistributionCategory,
   Goal,
+  OpeningBalance,
   PlatikData,
   Profile,
   Transaction,
 } from "./types";
-import { buildDemoData } from "./demo-data";
-import { migrateData } from "./migration";
-
-const STORAGE_KEY = "platik:data:v1";
+import { buildEmptyData } from "./demo-data";
+import {
+  dataKeyForMode,
+  defaultPlatikData,
+  LEGACY_KEY,
+  MODE_KEY,
+  readMode,
+  readPlatik,
+  SCHEMA_VERSION,
+  writeMode,
+  writePlatik,
+  type PlatikMode,
+} from "./storage";
 
 type Action =
-  | { type: "hydrate"; data: PlatikData; customized: boolean }
+  | { type: "hydrate"; mode: PlatikMode; data: PlatikData; customized: boolean }
   | { type: "tx/add"; tx: Transaction }
   | { type: "tx/update"; tx: Transaction }
   | { type: "tx/delete"; id: string }
@@ -30,25 +41,29 @@ type Action =
   | { type: "goal/delete"; id: string }
   | { type: "goal/aporte"; id: string; monto: number }
   | { type: "profile/update"; profile: Profile }
-  | { type: "distribution/update"; distribution: Distribution }
+  | { type: "distribution/update"; distribution: DistributionCategory[] }
+  | { type: "openingBalance/set"; openingBalance: OpeningBalance | null }
+  | { type: "balanceAdjustment/add"; adjustment: BalanceAdjustment }
+  | { type: "balanceAdjustment/delete"; id: string }
   | { type: "aporteStellar/upsert"; aporte: AporteStellar }
   | { type: "aporteStellar/delete"; id: string }
-  | { type: "reset" };
+  | { type: "reset"; mode: PlatikMode };
 
 interface State {
+  mode: PlatikMode;
   data: PlatikData;
-  /** true si el usuario ya modificó los datos de demostración. */
+  /** true si el usuario ya modificó los datos del modo activo. */
   customized: boolean;
 }
 
 function withData(state: State, data: Partial<PlatikData>): State {
-  return { data: { ...state.data, ...data }, customized: true };
+  return { ...state, data: { ...state.data, ...data }, customized: true };
 }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "hydrate":
-      return { data: action.data, customized: action.customized };
+      return { mode: action.mode, data: action.data, customized: action.customized };
     case "tx/add":
       return withData(state, {
         transactions: [action.tx, ...state.data.transactions],
@@ -61,17 +76,13 @@ function reducer(state: State, action: Action): State {
       });
     case "tx/delete":
       return withData(state, {
-        transactions: state.data.transactions.filter(
-          (t) => t.id !== action.id,
-        ),
+        transactions: state.data.transactions.filter((t) => t.id !== action.id),
       });
     case "goal/add":
       return withData(state, { goals: [...state.data.goals, action.goal] });
     case "goal/update":
       return withData(state, {
-        goals: state.data.goals.map((g) =>
-          g.id === action.goal.id ? action.goal : g,
-        ),
+        goals: state.data.goals.map((g) => (g.id === action.goal.id ? action.goal : g)),
       });
     case "goal/delete":
       return withData(state, {
@@ -89,11 +100,21 @@ function reducer(state: State, action: Action): State {
       return withData(state, { profile: action.profile });
     case "distribution/update":
       return withData(state, { distribution: action.distribution });
+    case "openingBalance/set":
+      return withData(state, { openingBalance: action.openingBalance });
+    case "balanceAdjustment/add":
+      return withData(state, {
+        balanceAdjustments: [action.adjustment, ...state.data.balanceAdjustments],
+      });
+    case "balanceAdjustment/delete":
+      return withData(state, {
+        balanceAdjustments: state.data.balanceAdjustments.filter(
+          (a) => a.id !== action.id,
+        ),
+      });
     case "aporteStellar/upsert":
       return withData(state, {
-        aportesStellar: state.data.aportesStellar.some(
-          (a) => a.id === action.aporte.id,
-        )
+        aportesStellar: state.data.aportesStellar.some((a) => a.id === action.aporte.id)
           ? state.data.aportesStellar.map((a) =>
               a.id === action.aporte.id ? action.aporte : a,
             )
@@ -101,20 +122,25 @@ function reducer(state: State, action: Action): State {
       });
     case "aporteStellar/delete":
       return withData(state, {
-        aportesStellar: state.data.aportesStellar.filter(
-          (a) => a.id !== action.id,
-        ),
+        aportesStellar: state.data.aportesStellar.filter((a) => a.id !== action.id),
       });
     case "reset":
-      return { data: buildDemoData(), customized: false };
+      return {
+        mode: action.mode,
+        data: defaultPlatikData(action.mode),
+        customized: false,
+      };
     default:
       return state;
   }
 }
 
 interface Store {
+  mode: PlatikMode;
   data: PlatikData;
   hydrated: boolean;
+  switchMode: (mode: PlatikMode) => void;
+  resetCurrent: () => void;
   addTransaction: (tx: Omit<Transaction, "id">) => void;
   updateTransaction: (tx: Transaction) => void;
   deleteTransaction: (id: string) => void;
@@ -123,24 +149,17 @@ interface Store {
   deleteGoal: (id: string) => void;
   addAporte: (id: string, monto: number) => void;
   updateProfile: (profile: Profile) => void;
-  updateDistribution: (distribution: Distribution) => void;
+  updateDistribution: (distribution: DistributionCategory[]) => void;
+  setOpeningBalance: (opening: Omit<OpeningBalance, "id"> | null) => void;
+  addBalanceAdjustment: (adjustment: Omit<BalanceAdjustment, "id">) => void;
+  deleteBalanceAdjustment: (id: string) => void;
   upsertAporteStellar: (aporte: AporteStellar) => void;
   deleteAporteStellar: (id: string) => void;
-  resetDemo: () => void;
 }
 
 const PlatikContext = createContext<Store | null>(null);
 
-/** Estado inicial sin fechas: seguro para el prerender (cacheComponents). */
-const EMPTY_DATA: PlatikData = {
-  transactions: [],
-  goals: [],
-  profile: { nombreNegocio: "", nombreUsuario: "", moneda: "BOB" },
-  distribution: { operacion: 55, reinversion: 25, ahorro: 20 },
-  aportesStellar: [],
-};
-
-const INITIAL_STATE: State = { data: EMPTY_DATA, customized: false };
+const INITIAL_STATE: State = { mode: "demo", data: buildEmptyData(), customized: false };
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -148,87 +167,19 @@ function newId() {
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** Valida que lo guardado tenga la forma completa de PlatikData. */
-function isPlatikData(x: unknown): x is PlatikData {
-  if (!x || typeof x !== "object") return false;
-  const d = x as Partial<PlatikData>;
-  return (
-    !!d.profile &&
-    typeof d.profile === "object" &&
-    typeof d.profile.moneda === "string" &&
-    Array.isArray(d.transactions) &&
-    Array.isArray(d.goals) &&
-    !!d.distribution &&
-    typeof d.distribution === "object"
-  );
-}
-
-/** Completa campos añadidos después del primer release y descarta entradas corruptas. */
-function conDefecto(d: PlatikData): PlatikData {
-  const ESTADOS = new Set([
-    "preparado",
-    "firma_solicitada",
-    "enviada",
-    "confirmada",
-    "fallida",
-    "cancelada",
-  ]);
-  const aportes = Array.isArray(d.aportesStellar)
-    ? d.aportesStellar.filter(
-        (a): a is AporteStellar =>
-          !!a &&
-          typeof a === "object" &&
-          typeof a.id === "string" &&
-          typeof a.goalId === "string" &&
-          typeof a.walletOrigen === "string" &&
-          typeof a.createdAt === "string" &&
-          typeof a.importe === "number" &&
-          Number.isFinite(a.importe) &&
-          typeof a.estado === "string" &&
-          ESTADOS.has(a.estado as AporteStellar["estado"]),
-      )
-    : [];
-  return { ...d, aportesStellar: aportes };
-}
-
-/** Datos antiguos o nuevos: migración compatible (monedas, país, metas). */
-function normalizarDatos(d: PlatikData): PlatikData {
-  return migrateData(conDefecto(d));
-}
-
-/** Lee el almacenamiento; devuelve null si falta o es inválido. */
-function readStored(): State | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    // Formato actual: { data, customized }
-    const wrapped = parsed as { data?: unknown; customized?: unknown };
-    if (isPlatikData(wrapped?.data)) {
-      return {
-        data: normalizarDatos(wrapped.data),
-        customized: wrapped.customized === true,
-      };
+function loadStateForMode(mode: PlatikMode): State {
+  const storage = window.localStorage;
+  const stored = readPlatik(storage, mode);
+  if (mode === "demo") {
+    // La demo no personalizada se regenera con fechas recientes; una copia
+    // modificada por el usuario (customized) se respeta hasta restablecerla.
+    if (stored?.customized) {
+      return { mode, data: stored.data, customized: true };
     }
-    // Legado v1 (sin envoltura): se trata como datos propios del usuario
-    if (isPlatikData(parsed)) {
-      return { data: normalizarDatos(parsed), customized: true };
-    }
-    return null;
-  } catch {
-    return null;
+    return { mode, data: defaultPlatikData("demo"), customized: false };
   }
-}
-
-function writeStored(state: State) {
-  try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ data: state.data, customized: state.customized }),
-    );
-  } catch {
-    // Sin espacio / modo privado: la sesión sigue funcionando en memoria.
-  }
+  if (stored) return { mode, data: stored.data, customized: stored.customized };
+  return { mode, data: defaultPlatikData("beta"), customized: false };
 }
 
 export function PlatikProvider({ children }: { children: React.ReactNode }) {
@@ -236,59 +187,72 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useReducer(() => true, false);
 
   useEffect(() => {
-    const stored = readStored();
-    // Si el usuario nunca personalizó, regeneramos la demo con fechas
-    // recientes; si la tocó, respetamos sus datos tal como quedaron.
-    const next = stored?.customized
-      ? stored
-      : { data: buildDemoData(), customized: false };
-    dispatch({ type: "hydrate", data: next.data, customized: next.customized });
+    dispatch({ type: "hydrate", ...loadStateForMode(readMode(window.localStorage)) });
     setHydrated();
+  }, []);
 
-    // Sincroniza con otras pestañas abiertas.
+  // Sincroniza con otras pestañas: cualquier cambio en las claves de PLATIK
+  // recarga el estado del modo activo (evita mezclas entre modalidades).
+  useEffect(() => {
+    if (!hydrated) return;
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== STORAGE_KEY) return;
-      const s = readStored();
-      if (s) {
-        dispatch({ type: "hydrate", data: s.data, customized: s.customized });
+      if (!e.key) return;
+      if (e.key === MODE_KEY || e.key === LEGACY_KEY || e.key === dataKeyForMode(state.mode)) {
+        window.location.reload();
       }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  }, [hydrated, state.mode]);
 
   useEffect(() => {
-    if (hydrated) writeStored(state);
+    if (!hydrated) return;
+    writePlatik(window.localStorage, state.mode, {
+      version: SCHEMA_VERSION,
+      data: state.data,
+      customized: state.customized,
+    });
   }, [state, hydrated]);
 
   const store = useMemo<Store>(
     () => ({
+      mode: state.mode,
       data: state.data,
       hydrated,
-      addTransaction: (tx) =>
-        dispatch({ type: "tx/add", tx: { ...tx, id: newId() } }),
+      switchMode: (mode) => {
+        writeMode(window.localStorage, mode);
+        dispatch({ type: "hydrate", ...loadStateForMode(mode) });
+      },
+      resetCurrent: () => dispatch({ type: "reset", mode: state.mode }),
+      addTransaction: (tx) => dispatch({ type: "tx/add", tx: { ...tx, id: newId() } }),
       updateTransaction: (tx) => dispatch({ type: "tx/update", tx }),
       deleteTransaction: (id) => dispatch({ type: "tx/delete", id }),
-      addGoal: (goal) =>
-        dispatch({ type: "goal/add", goal: { ...goal, id: newId() } }),
+      addGoal: (goal) => dispatch({ type: "goal/add", goal: { ...goal, id: newId() } }),
       updateGoal: (goal) => dispatch({ type: "goal/update", goal }),
       deleteGoal: (id) => dispatch({ type: "goal/delete", id }),
       addAporte: (id, monto) => dispatch({ type: "goal/aporte", id, monto }),
       updateProfile: (profile) => dispatch({ type: "profile/update", profile }),
       updateDistribution: (distribution) =>
         dispatch({ type: "distribution/update", distribution }),
+      setOpeningBalance: (opening) =>
+        dispatch({
+          type: "openingBalance/set",
+          openingBalance: opening ? { ...opening, id: newId() } : null,
+        }),
+      addBalanceAdjustment: (adjustment) =>
+        dispatch({
+          type: "balanceAdjustment/add",
+          adjustment: { ...adjustment, id: newId() },
+        }),
+      deleteBalanceAdjustment: (id) => dispatch({ type: "balanceAdjustment/delete", id }),
       upsertAporteStellar: (aporte) =>
         dispatch({ type: "aporteStellar/upsert", aporte }),
-      deleteAporteStellar: (id) =>
-        dispatch({ type: "aporteStellar/delete", id }),
-      resetDemo: () => dispatch({ type: "reset" }),
+      deleteAporteStellar: (id) => dispatch({ type: "aporteStellar/delete", id }),
     }),
-    [state.data, hydrated],
+    [state, hydrated],
   );
 
-  return (
-    <PlatikContext.Provider value={store}>{children}</PlatikContext.Provider>
-  );
+  return <PlatikContext.Provider value={store}>{children}</PlatikContext.Provider>;
 }
 
 export function usePlatik(): Store {

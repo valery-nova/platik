@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react";
 import { DemoBadge } from "./ui";
+import { FeedbackLink } from "./feedback";
+import { usePlatik } from "@/lib/store";
 
 const NAV = [
   { href: "/panel", label: "Panel", icon: LayoutDashboard },
@@ -53,6 +55,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { mode, hydrated } = usePlatik();
 
   return (
     <div className="flex min-h-screen">
@@ -74,6 +77,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <NavLinks />
         <div className="mt-auto flex flex-col gap-3 px-2">
           <DemoBadge />
+          <FeedbackLink className="w-full justify-center" />
           <Image
             src="/brand/mascota/expresiones/expresion-explica.png"
             alt=""
@@ -133,13 +137,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </button>
             </div>
             <NavLinks onNavigate={() => setMenuOpen(false)} />
+            <div className="mt-4"><FeedbackLink className="w-full justify-center" /></div>
           </div>
         </div>
       )}
 
       {/* Contenido */}
       <main className="w-full px-4 pb-16 pt-20 sm:px-6 lg:ml-64 lg:px-10 lg:pt-10">
-        <div className="mx-auto max-w-6xl">{children}</div>
+        <div className="mx-auto max-w-6xl">
+          {hydrated && mode === "beta" && (
+            <div className="mb-4 rounded-2xl border border-lavanda/30 bg-lavanda-50 px-4 py-3 text-sm text-petroleo">
+              Estás en la <strong>prueba beta</strong> de PLATIK (72 horas). Te informaremos el tiempo restante por separado; los datos se guardan solo en este navegador.
+            </div>
+          )}
+          {children}
+        </div>
       </main>
 
       {/* Tab bar móvil */}

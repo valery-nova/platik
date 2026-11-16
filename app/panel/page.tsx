@@ -38,11 +38,9 @@ import {
 } from "@/lib/finance";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
 import { hoyISO } from "@/lib/finance";
-import {
-  CATEGORIAS_DISTRIBUCION,
-  diagnostico,
-  montosDistribucion,
-} from "@/lib/insights";
+import { diagnostico } from "@/lib/insights";
+import { saldoDisponible } from "@/lib/balance";
+import { montosDistribucion } from "@/lib/distribution";
 
 function KpiCard({
   titulo,
@@ -104,20 +102,20 @@ export default function DashboardPage() {
   const mostrarEquivalencia =
     !!displayMoneda && displayMoneda !== moneda.toUpperCase();
   const totalIngresos6m = serie.reduce((a, s) => a + s.ingresos, 0);
-  // La distribución se aplica al dinero disponible (excedente del período),
-  // no a los ingresos brutos; si no se puede determinar, no se reparte.
-  const { disponible, hallazgos } = diagnostico(
+  // Hallazgos del período + dinero disponible global (saldo + movimientos).
+  const { hallazgos } = diagnostico(
     transactions,
     moneda,
     { desde: haceDiasISO(29), hasta: hoyISO() },
     { desde: haceDiasISO(59), hasta: haceDiasISO(30) },
   );
+  const disponible = saldoDisponible(data, moneda);
   const montos =
     disponible.monto !== null && disponible.monto > 0
       ? montosDistribucion(distribution, disponible.monto, moneda)
       : null;
   const distribucion = montos
-    ? CATEGORIAS_DISTRIBUCION.map((c) => ({ nombre: c.nombre, valor: montos[c.key] })).concat(
+    ? distribution.map((c) => ({ nombre: c.nombre, valor: montos.porCategoria[c.key] ?? 0 })).concat(
         montos.sinAsignar > 0 ? [{ nombre: "Sin asignar", valor: montos.sinAsignar }] : [],
       )
     : [];
@@ -286,7 +284,7 @@ export default function DashboardPage() {
         <Card className="p-5">
           <CardHeader
             title="Distribución del dinero"
-            subtitle="Tu reparto del excedente de 30 días (editable)"
+            subtitle="Tu reparto del dinero disponible (editable)"
           />
           {montos && disponible.monto !== null ? (
             <>
@@ -299,8 +297,7 @@ export default function DashboardPage() {
               </p>
               <DistribucionChart items={distribucion} moneda={moneda} />
               <p className="mt-2 text-center text-xs text-tinta-suave">
-                {distribution.operacion}% capital operativo · {distribution.reinversion}%
-                reinversión · {distribution.ahorro}% ahorro para metas
+                {distribution.map((c) => `${c.porcentaje}% ${c.nombre}`).join(" · ")}
               </p>
             </>
           ) : (
