@@ -25,6 +25,14 @@ import { usePlatik } from "@/lib/store";
 import { CATEGORIAS } from "@/lib/categories";
 import { hoyISO } from "@/lib/finance";
 import { formatFecha, formatMoney } from "@/lib/format";
+import { currencyDigits, currencyName, currencyStep, listCurrencies } from "@/lib/currency/catalog";
+import { roundToCurrency } from "@/lib/currency/decimal";
+import {
+  buildConversionFields,
+  type ConversionFields,
+} from "@/lib/currency/rates";
+import { getRateService } from "@/lib/currency/service";
+import { EquivalenciaSecundaria } from "@/components/equivalencia";
 import type { Transaction, TxType } from "@/lib/types";
 
 const TIPO_LABEL: Record<TxType, string> = {
@@ -36,6 +44,7 @@ const TIPO_LABEL: Record<TxType, string> = {
 interface FormState {
   tipo: TxType;
   monto: string;
+  moneda: string;
   categoria: string;
   descripcion: string;
   fecha: string;
@@ -44,18 +53,62 @@ interface FormState {
 const FORM_INICIAL: FormState = {
   tipo: "ingreso",
   monto: "",
+  moneda: "BOB",
   categoria: CATEGORIAS.ingreso[0],
   descripcion: "",
   fecha: "",
 };
 
+/**
+ * Campos de conversión del movimiento (vacío si no hay cotización válida
+ * y vigente). Usa el motor global: proveedor + caché + vigencia.
+ */
+async function conversionFor(
+  from: string,
+  to: string,
+  amount: number,
+): Promise<ConversionFields> {
+  if (from.toUpperCase() === to.toUpperCase()) return {};
+  const { quote } = await getRateService().quote(from, to);
+  return buildConversionFields(from, to, amount, quote);
+}
+
+/**
+ * Snapshot de conversión previo de una transacción, solo si el importe y
+ * la moneda no cambiaron. Así editar una descripción o una fecha no pierde
+ * la equivalencia histórica, y cambiar el importe la invalida (queda
+ * pendiente hasta tener una cotización válida: nunca se inventa).
+ */
+function conversionPreviaDe(
+  orig: Transaction,
+  moneda: string,
+  monto: number,
+): ConversionFields {
+  if (orig.moneda !== moneda || orig.monto !== monto) return {};
+  const out: ConversionFields = {};
+  if (typeof orig.baseAmount === "number") out.baseAmount = orig.baseAmount;
+  if (typeof orig.baseCurrency === "string") out.baseCurrency = orig.baseCurrency;
+  if (typeof orig.exchangeRate === "number") out.exchangeRate = orig.exchangeRate;
+  if (typeof orig.exchangeRateSource === "string")
+    out.exchangeRateSource = orig.exchangeRateSource;
+  if (typeof orig.exchangeRateDate === "string")
+    out.exchangeRateDate = orig.exchangeRateDate;
+  if (typeof orig.exchangeRateType === "string")
+    out.exchangeRateType = orig.exchangeRateType as ConversionFields["exchangeRateType"];
+  if (typeof orig.exchangeRatePublishedAt === "string")
+    out.exchangeRatePublishedAt = orig.exchangeRatePublishedAt;
+  return out;
+}
+
 function TransactionForm({
   initial,
+  baseMoneda,
   submitLabel,
   onSubmit,
   onCancel,
 }: {
   initial: FormState;
+  baseMoneda: string;
   submitLabel: string;
   onSubmit: (f: FormState) => void;
   onCancel: () => void;
@@ -67,6 +120,9 @@ function TransactionForm({
   const valido =
     Number.isFinite(montoNum) &&
     montoNum > 0 &&
+    // Debe seguir siendo > 0 tras redondear a los decimales ISO de la moneda
+    // (p. ej. 0.10 JPY se redondea a 0 y no es un movimiento válido).
+    roundToCurrency(montoNum, currencyDigits(form.moneda)) > 0 &&
     form.descripcion.trim().length >= 2 &&
     Boolean(form.fecha);
 
@@ -74,7 +130,7 @@ function TransactionForm({
     e.preventDefault();
     if (!valido) {
       setError(
-        "Revisa los datos: el monto debe ser mayor a 0 y la descripción no puede estar vacía.",
+        "Revisa los datos: el monto debe ser válido para la moneda elegida, la descripción no puede estar vacía y la fecha es obligatoria.",
       );
       return;
     }
@@ -105,18 +161,40 @@ function TransactionForm({
           ))}
         </div>
       </Field>
-      <Field label="Monto (Bs)">
-        <Input
-          type="number"
-          min="0"
-          step="0.01"
-          inputMode="decimal"
-          placeholder="0.00"
-          value={form.monto}
-          onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))}
-          required
-        />
-      </Field>
+      <div className="grid grid-cols-[1fr_110px] gap-3">
+        <Field label="Monto">
+          <Input
+            type="number"
+            min="0"
+            step={currencyStep(form.moneda)}
+            inputMode="decimal"
+            placeholder="0.00"
+            value={form.monto}
+            onChange={(e) => setForm((f) => ({ ...f, monto: e.target.value }))}
+            required
+          />
+        </Field>
+        <Field label="Moneda">
+          <Select
+            value={form.moneda}
+            onChange={(e) => setForm((f) => ({ ...f, moneda: e.target.value }))}
+            aria-label="Moneda del movimiento"
+          >
+            {listCurrencies().map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.code} · {currencyName(c.code)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      {form.moneda !== baseMoneda && (
+        <p className="text-xs text-tinta-suave">
+          Se registrará en {form.moneda}. Si no hay cotización válida hacia{" "}
+          {baseMoneda}, quedará pendiente de conversión y no se inventará una
+          equivalencia.
+        </p>
+      )}
       <Field label="Descripción">
         <Input
           placeholder="Ej. Ventas del fin de semana"
@@ -321,16 +399,30 @@ export default function TransaccionesPage() {
                     <Badge tone={t.tipo === "ingreso" ? "menta" : "coral"}>
                       {TIPO_LABEL[t.tipo]}
                     </Badge>
+                    {t.moneda !== data.profile.moneda && (
+                      <Badge tone="lavanda">
+                        {t.moneda}
+                        {t.baseAmount == null ? " · pendiente" : ""}
+                      </Badge>
+                    )}
                   </p>
                 </div>
-                <p
-                  className={`shrink-0 text-sm font-semibold sm:text-base ${
-                    t.tipo === "ingreso" ? "text-menta-700" : "text-coral-600"
-                  }`}
-                >
-                  {t.tipo === "ingreso" ? "+" : "−"}
-                  {formatMoney(t.monto, moneda)}
-                </p>
+                <div className="shrink-0 text-right">
+                  <p
+                    className={`text-sm font-semibold sm:text-base ${
+                      t.tipo === "ingreso" ? "text-menta-700" : "text-coral-600"
+                    }`}
+                  >
+                    {t.tipo === "ingreso" ? "+" : "−"}
+                    {formatMoney(t.monto, t.moneda)}
+                  </p>
+                  <EquivalenciaSecundaria
+                    monto={t.monto}
+                    moneda={t.moneda}
+                    displayMoneda={data.profile.displayCurrency}
+                    compact
+                  />
+                </div>
                 <div className="flex shrink-0 gap-1">
                   <button
                     onClick={() => setModal(t)}
@@ -368,33 +460,58 @@ export default function TransaccionesPage() {
             key={modal === "nueva" ? "nueva" : modal.id}
             initial={
               modal === "nueva"
-                ? { ...FORM_INICIAL, fecha: hoyISO() }
+                ? { ...FORM_INICIAL, fecha: hoyISO(), moneda: moneda }
                 : {
                     tipo: modal.tipo,
                     monto: String(modal.monto),
+                    moneda: modal.moneda,
                     categoria: modal.categoria,
                     descripcion: modal.descripcion,
                     fecha: modal.fecha,
                   }
             }
+            baseMoneda={moneda}
             submitLabel={modal === "nueva" ? "Guardar" : "Actualizar"}
             onCancel={() => setModal(null)}
             onSubmit={(f) => {
-              const tx = {
-                tipo: f.tipo,
-                monto: Number(f.monto),
-                categoria: f.categoria,
-                descripcion: f.descripcion.trim(),
-                fecha: f.fecha,
-              };
-              if (modal === "nueva") {
-                addTransaction(tx);
-                notify("Transacción registrada correctamente.");
-              } else {
-                updateTransaction({ ...tx, id: modal.id });
-                notify("Transacción actualizada.");
-              }
-              setModal(null);
+              void (async () => {
+                const monto = roundToCurrency(Number(f.monto), currencyDigits(f.moneda));
+                // Al editar sin cambiar importe ni moneda se preserva el
+                // snapshot histórico tal cual; solo se busca cotización
+                // nueva si nunca hubo snapshot o si cambió algo.
+                const editando = modal !== "nueva" ? modal : null;
+                const sinCambios =
+                  editando !== null &&
+                  editando.monto === monto &&
+                  editando.moneda === f.moneda;
+                let conversion: ConversionFields = {};
+                if (editando && sinCambios) {
+                  const preservado = conversionPreviaDe(editando, f.moneda, monto);
+                  conversion =
+                    Object.keys(preservado).length > 0
+                      ? preservado
+                      : await conversionFor(f.moneda, moneda, monto);
+                } else {
+                  conversion = await conversionFor(f.moneda, moneda, monto);
+                }
+                const tx = {
+                  tipo: f.tipo,
+                  monto,
+                  moneda: f.moneda,
+                  categoria: f.categoria,
+                  descripcion: f.descripcion.trim(),
+                  fecha: f.fecha,
+                  ...conversion,
+                };
+                if (modal === "nueva") {
+                  addTransaction(tx);
+                  notify("Transacción registrada correctamente.");
+                } else {
+                  updateTransaction({ ...tx, id: modal.id });
+                  notify("Transacción actualizada.");
+                }
+                setModal(null);
+              })();
             }}
           />
         )}
@@ -410,7 +527,7 @@ export default function TransaccionesPage() {
           <div className="space-y-4">
             <p className="text-sm text-tinta-suave">
               ¿Eliminar <strong>“{confirmDelete.descripcion}”</strong> por{" "}
-              {formatMoney(confirmDelete.monto, moneda)}? Esta acción no se puede
+              {formatMoney(confirmDelete.monto, confirmDelete.moneda)}? Esta acción no se puede
               deshacer.
             </p>
             <div className="flex justify-end gap-2">

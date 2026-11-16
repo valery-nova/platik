@@ -21,6 +21,10 @@ import {
   ProgressBar,
 } from "@/components/ui";
 import { DistribucionChart, IngresosEgresosChart } from "@/components/charts";
+import {
+  BotonActualizarCotizaciones,
+  EquivalenciaSecundaria,
+} from "@/components/equivalencia";
 import { usePlatik } from "@/lib/store";
 import {
   gananciaNeta,
@@ -33,6 +37,12 @@ import {
   ultimasTransacciones,
 } from "@/lib/finance";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
+import { hoyISO } from "@/lib/finance";
+import {
+  CATEGORIAS_DISTRIBUCION,
+  diagnostico,
+  montosDistribucion,
+} from "@/lib/insights";
 
 function KpiCard({
   titulo,
@@ -76,22 +86,41 @@ const TIPO_LABEL: Record<string, string> = {
 export default function DashboardPage() {
   const { data, hydrated } = usePlatik();
   if (!hydrated) return <PanelSkeleton />;
-  const { transactions, goals, profile, distribution } = data;
+  const { transactions, goals, profile, distribution, aportesStellar } = data;
   const moneda = profile.moneda;
+  const aportesConfirmados = aportesStellar.filter((a) => a.estado === "confirmada");
+  const usdcConfirmado = aportesConfirmados.reduce((s, a) => s + a.importe, 0);
 
   const ultimos30 = txInRange(transactions, haceDiasISO(29));
-  const ingresos = totalByType(ultimos30, "ingreso");
-  const egresos = totalEgresos(ultimos30);
-  const neta = gananciaNeta(ultimos30);
-  const margen = margenGanancia(ultimos30);
-  const serie = serieMensual(transactions, 6);
+  const ingresos = totalByType(ultimos30, "ingreso", moneda);
+  const egresos = totalEgresos(ultimos30, moneda);
+  const neta = gananciaNeta(ultimos30, moneda);
+  const margen = margenGanancia(ultimos30, moneda);
+  const serie = serieMensual(transactions, 6, hoyISO(), moneda);
   const ultimas = ultimasTransacciones(transactions, 6);
 
-  const distribucion = [
-    { nombre: "Operación", valor: Math.max(0, (neta * distribution.operacion) / 100) },
-    { nombre: "Reinversión", valor: Math.max(0, (neta * distribution.reinversion) / 100) },
-    { nombre: "Ahorro", valor: Math.max(0, (neta * distribution.ahorro) / 100) },
-  ];
+  const ganancia = neta.ganancia;
+  const displayMoneda = profile.displayCurrency?.toUpperCase();
+  const mostrarEquivalencia =
+    !!displayMoneda && displayMoneda !== moneda.toUpperCase();
+  const totalIngresos6m = serie.reduce((a, s) => a + s.ingresos, 0);
+  // La distribución se aplica al dinero disponible (excedente del período),
+  // no a los ingresos brutos; si no se puede determinar, no se reparte.
+  const { disponible, hallazgos } = diagnostico(
+    transactions,
+    moneda,
+    { desde: haceDiasISO(29), hasta: hoyISO() },
+    { desde: haceDiasISO(59), hasta: haceDiasISO(30) },
+  );
+  const montos =
+    disponible.monto !== null && disponible.monto > 0
+      ? montosDistribucion(distribution, disponible.monto, moneda)
+      : null;
+  const distribucion = montos
+    ? CATEGORIAS_DISTRIBUCION.map((c) => ({ nombre: c.nombre, valor: montos[c.key] })).concat(
+        montos.sinAsignar > 0 ? [{ nombre: "Sin asignar", valor: montos.sinAsignar }] : [],
+      )
+    : [];
 
   return (
     <div className="space-y-6 pb-10">
@@ -112,33 +141,116 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           titulo="Ingresos"
-          valor={formatMoney(ingresos, moneda)}
+          valor={formatMoney(ingresos.total, moneda)}
           detalle="últimos 30 días"
           icon={<ArrowUpRight size={20} />}
           tone="menta"
         />
         <KpiCard
           titulo="Gastos y costos"
-          valor={formatMoney(egresos, moneda)}
+          valor={formatMoney(egresos.total, moneda)}
           detalle="últimos 30 días"
           icon={<ArrowDownRight size={20} />}
           tone="coral"
         />
         <KpiCard
           titulo="Ganancia neta estimada"
-          valor={formatMoney(neta, moneda)}
-          detalle={neta >= 0 ? "tu negocio va en positivo" : "revisa tus egresos"}
+          valor={formatMoney(ganancia, moneda)}
+          detalle={ganancia >= 0 ? "tu negocio va en positivo" : "revisa tus egresos"}
           icon={<Wallet size={20} />}
           tone="petroleo"
         />
         <KpiCard
           titulo="Rentabilidad"
-          valor={formatPct(margen)}
-          detalle="ganancia por cada Bs 100 vendidos"
+          valor={margen === null ? "—" : formatPct(margen)}
+          detalle={
+            margen === null
+              ? "sin ingresos en el periodo"
+              : `ganancia por cada ${moneda} 100 vendidos`
+          }
           icon={<TrendingUp size={20} />}
           tone="lavanda"
         />
       </div>
+
+      {/* Aviso de movimientos pendientes de conversión */}
+      {neta.pendientes > 0 && (
+        <Card className="border-lavanda-300 bg-lavanda-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="max-w-2xl text-sm text-petroleo">
+              <strong>{neta.pendientes}</strong> movimiento(s) en otra moneda aún
+              no tienen cotización válida y no se incluyen en los totales. Se
+              conservan con su importe original; no inventamos equivalencias.
+            </p>
+            <BotonActualizarCotizaciones />
+          </div>
+        </Card>
+      )}
+
+      {/* Lo más importante: hallazgos deterministas del período */}
+      {hallazgos.length > 0 && (
+        <Card className="p-5">
+          <CardHeader
+            title="Lo más importante"
+            subtitle="Lecturas calculadas con tus movimientos de los últimos 30 días"
+            action={
+              <Link
+                href="/panel/analisis"
+                className="inline-flex items-center gap-1 text-sm font-medium text-menta-700 hover:underline"
+              >
+                Ver detalle <ArrowRight size={14} />
+              </Link>
+            }
+          />
+          <ul className="space-y-2">
+            {hallazgos.slice(0, 3).map((h) => (
+              <li key={h.id} className="flex gap-2.5 text-sm text-tinta">
+                <span
+                  aria-hidden
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    h.tono === "positivo"
+                      ? "bg-menta-600"
+                      : h.tono === "alerta"
+                        ? "bg-coral-600"
+                        : h.tono === "info"
+                          ? "bg-lavanda-600"
+                          : "bg-petroleo"
+                  }`}
+                />
+                {h.texto}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* Equivalencia informativa en la moneda de visualización */}
+      {mostrarEquivalencia && (
+        <Card className="p-5">
+          <CardHeader
+            title="Equivalencia informativa"
+            subtitle={`Solo lectura en ${displayMoneda}: no altera tus saldos reales ni tus metas.`}
+          />
+          <div className="space-y-2 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-tinta-suave">Ganancia neta estimada (30 días)</span>
+              <span className="font-semibold text-petroleo">
+                {formatMoney(ganancia, moneda)}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="pl-3 text-xs text-tinta-suave">
+                Equivalencia aproximada
+              </span>
+              <EquivalenciaSecundaria
+                monto={ganancia}
+                moneda={moneda}
+                displayMoneda={displayMoneda}
+              />
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Gráfico principal */}
@@ -156,26 +268,49 @@ export default function DashboardPage() {
             }
           />
           <IngresosEgresosChart serie={serie} moneda={moneda} />
+          {mostrarEquivalencia && (
+            <p className="mt-2 text-xs text-tinta-suave">
+              Equivalencia informativa de los ingresos de 6 meses (
+              {formatMoney(totalIngresos6m, moneda)}):{" "}
+              <EquivalenciaSecundaria
+                monto={totalIngresos6m}
+                moneda={moneda}
+                displayMoneda={displayMoneda}
+                compact
+              />
+            </p>
+          )}
         </Card>
 
         {/* Distribución sugerida */}
         <Card className="p-5">
           <CardHeader
             title="Distribución del dinero"
-            subtitle="Propuesta editable sobre tu ganancia"
+            subtitle="Tu reparto del excedente de 30 días (editable)"
           />
-          {neta > 0 ? (
+          {montos && disponible.monto !== null ? (
             <>
+              <p className="mb-1 text-center text-xs text-tinta-suave">
+                Dinero disponible:{" "}
+                <strong className="text-petroleo">
+                  {formatMoney(disponible.monto, moneda)}
+                </strong>
+                {disponible.estado === "parcial" && " (estimación conservadora)"}
+              </p>
               <DistribucionChart items={distribucion} moneda={moneda} />
               <p className="mt-2 text-center text-xs text-tinta-suave">
-                {distribution.operacion}% operación · {distribution.reinversion}%
-                reinversión · {distribution.ahorro}% ahorro
+                {distribution.operacion}% capital operativo · {distribution.reinversion}%
+                reinversión · {distribution.ahorro}% ahorro para metas
               </p>
             </>
           ) : (
             <EmptyState
-              title="Sin ganancia en el periodo"
-              description="Cuando tus ingresos superen a los egresos verás aquí cómo distribuir el excedente."
+              title={
+                disponible.monto === null
+                  ? "Dinero disponible no determinable"
+                  : "Sin dinero disponible en el periodo"
+              }
+              description={disponible.motivo}
               mascot="analiza"
             />
           )}
@@ -233,7 +368,10 @@ export default function DashboardPage() {
                     }`}
                   >
                     {t.tipo === "ingreso" ? "+" : "−"}
-                    {formatMoney(t.monto, moneda)}
+                    {formatMoney(t.monto, t.moneda)}
+                    {t.moneda !== moneda && (
+                      <span className="ml-1 text-[10px] text-tinta-suave">({t.moneda})</span>
+                    )}
                   </p>
                   <Badge tone={t.tipo === "ingreso" ? "menta" : "coral"}>
                     {TIPO_LABEL[t.tipo]}
@@ -273,8 +411,8 @@ export default function DashboardPage() {
                   </div>
                   <ProgressBar value={pct} tone="lavanda" />
                   <p className="mt-1 text-xs text-tinta-suave">
-                    {formatMoney(g.ahorroAcumulado, moneda)} de{" "}
-                    {formatMoney(g.montoObjetivo, moneda)}
+                    {formatMoney(g.ahorroAcumulado, g.moneda)} de{" "}
+                    {formatMoney(g.montoObjetivo, g.moneda)}
                   </p>
                 </div>
               );
@@ -286,6 +424,17 @@ export default function DashboardPage() {
                 mascot="celebra"
               />
             )}
+            <div className="rounded-xl bg-menta-50 p-3">
+              <p className="text-xs text-tinta-suave">
+                Ahorro on-chain (USDC de prueba · Stellar Testnet)
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-petroleo">
+                {usdcConfirmado.toLocaleString("es-BO", { maximumFractionDigits: 7 })} USDC
+                <span className="ml-1 font-normal text-tinta-suave">
+                  · {aportesConfirmados.length} confirmado(s)
+                </span>
+              </p>
+            </div>
           </div>
         </Card>
       </div>
@@ -293,7 +442,7 @@ export default function DashboardPage() {
       {/* Ayuda de la mascota */}
       <Card className="flex flex-col items-center gap-4 bg-gradient-to-r from-menta-50 to-lavanda-50 p-6 sm:flex-row">
         <Image
-          src="/brand/mascot_analiza.png"
+          src="/brand/mascota/expresiones/expresion-analiza.png"
           alt=""
           width={110}
           height={110}

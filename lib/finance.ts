@@ -1,127 +1,231 @@
-import type { Transaction, TxType } from "./types";
-
 /**
- * Cálculos financieros deterministas. Todas las cifras que se muestran
- * en la app salen de estas funciones — ningún número se inventa en la UI.
+ * Cálculos financieros deterministas y conscientes de la moneda.
+ *
+ * Regla de oro: nunca se suman importes de monedas distintas sin una
+ * conversión válida guardada en el propio movimiento. Los movimientos sin
+ * cotización válida se conservan con su importe original y se marcan como
+ * pendientes de conversión; nunca se inventa una equivalencia.
  */
+import type { Distribution, Transaction } from "./types";
+import { currencyDigits } from "./currency/catalog";
+import { roundToCurrency } from "./currency/decimal";
 
-export function totalByType(txs: Transaction[], tipo: TxType): number {
-  return txs
-    .filter((t) => t.tipo === tipo)
-    .reduce((acc, t) => acc + t.monto, 0);
-}
-
-/** Egresos totales = costos + gastos. */
-export function totalEgresos(txs: Transaction[]): number {
-  return totalByType(txs, "costo") + totalByType(txs, "gasto");
-}
-
-/** Ganancia neta estimada = ingresos - costos - gastos. */
-export function gananciaNeta(txs: Transaction[]): number {
-  return totalByType(txs, "ingreso") - totalEgresos(txs);
-}
-
-/** Margen de ganancia = ganancia neta / ingresos. 0 si no hay ingresos. */
-export function margenGanancia(txs: Transaction[]): number {
-  const ingresos = totalByType(txs, "ingreso");
-  if (ingresos <= 0) return 0;
-  return (gananciaNeta(txs) / ingresos) * 100;
-}
-
-export function txInRange(
-  txs: Transaction[],
-  desdeISO?: string,
-  hastaISO?: string,
-): Transaction[] {
-  return txs.filter(
-    (t) => (!desdeISO || t.fecha >= desdeISO) && (!hastaISO || t.fecha <= hastaISO),
+/** ¿El movimiento ya tiene una equivalencia válida en la moneda indicada? */
+export function tieneConversionValida(tx: Transaction, monedaBase: string): boolean {
+  return (
+    typeof tx.baseAmount === "number" &&
+    Number.isFinite(tx.baseAmount) &&
+    typeof tx.baseCurrency === "string" &&
+    tx.baseCurrency.toUpperCase() === monedaBase.toUpperCase() &&
+    typeof tx.exchangeRate === "number" &&
+    Number.isFinite(tx.exchangeRate) &&
+    tx.exchangeRate > 0
   );
 }
 
-export interface MesSerie {
-  mes: string; // "2026-10"
+/**
+ * Importe del movimiento en la moneda común indicada, o null si no hay
+ * conversión válida. Misma moneda ⇒ el importe original es válido.
+ */
+export function montoEnBase(tx: Transaction, monedaBase: string): number | null {
+  const moneda = (tx.moneda || "BOB").toUpperCase();
+  const base = monedaBase.toUpperCase();
+  if (moneda === base) return tx.monto;
+  if (tieneConversionValida(tx, base)) return tx.baseAmount ?? null;
+  return null;
+}
+
+export interface TotalMoneda {
+  total: number;
+  /** Movimientos sin conversión válida (excluidos del total). */
+  pendientes: number;
+  /** Moneda común usada. */
+  moneda: string;
+}
+
+function sumarPorTipo(
+  txs: Transaction[],
+  tipo: Transaction["tipo"],
+  monedaBase: string,
+): TotalMoneda {
+  let total = 0;
+  let pendientes = 0;
+  for (const tx of txs) {
+    if (tx.tipo !== tipo) continue;
+    const v = montoEnBase(tx, monedaBase);
+    if (v === null) pendientes += 1;
+    else total += v;
+  }
+  // Redondeo final a los decimales de la moneda común: evita el polvo de
+  // punto flotante (0.1 + 0.2) en los totales que ve el usuario.
+  return { total: roundToCurrency(total, currencyDigits(monedaBase)), pendientes, moneda: monedaBase.toUpperCase() };
+}
+
+export function totalByType(
+  txs: Transaction[],
+  tipo: Transaction["tipo"],
+  monedaBase: string,
+): TotalMoneda {
+  return sumarPorTipo(txs, tipo, monedaBase);
+}
+
+export function totalEgresos(txs: Transaction[], monedaBase: string): TotalMoneda {
+  // Egresos = gastos + costos.
+  let total = 0;
+  let pendientes = 0;
+  for (const tx of txs) {
+    if (tx.tipo !== "gasto" && tx.tipo !== "costo") continue;
+    const v = montoEnBase(tx, monedaBase);
+    if (v === null) pendientes += 1;
+    else total += v;
+  }
+  return { total: roundToCurrency(total, currencyDigits(monedaBase)), pendientes, moneda: monedaBase.toUpperCase() };
+}
+
+export interface Ganancia {
+  ingresos: TotalMoneda;
+  egresos: TotalMoneda;
+  ganancia: number;
+  /** Pendientes totales (ingresos + egresos sin conversión válida). */
+  pendientes: number;
+  moneda: string;
+}
+
+export function gananciaNeta(txs: Transaction[], monedaBase: string): Ganancia {
+  const ingresos = sumarPorTipo(txs, "ingreso", monedaBase);
+  const egresos = totalEgresos(txs, monedaBase);
+  const ganancia = roundToCurrency(
+    ingresos.total - egresos.total,
+    currencyDigits(monedaBase),
+  );
+  return {
+    ingresos,
+    egresos,
+    ganancia,
+    pendientes: ingresos.pendientes + egresos.pendientes,
+    moneda: monedaBase.toUpperCase(),
+  };
+}
+
+export function margenGanancia(txs: Transaction[], monedaBase: string): number | null {
+  const g = gananciaNeta(txs, monedaBase);
+  if (g.ingresos.total <= 0) return null;
+  return (g.ganancia / g.ingresos.total) * 100;
+}
+
+/** Movimientos dentro de un rango de fechas ISO (inclusive). */
+export function txInRange(
+  txs: Transaction[],
+  desde: string,
+  hasta: string = "9999-12-31",
+): Transaction[] {
+  return txs.filter((tx) => tx.fecha >= desde && tx.fecha <= hasta);
+}
+
+export interface PuntoMensual {
+  mes: string; // "YYYY-MM"
   ingresos: number;
-  costos: number;
-  gastos: number;
   egresos: number;
   ganancia: number;
 }
 
-/** Serie mensual de los últimos `meses` meses terminando en `hasta` (default hoy). */
+/** Serie mensual en la moneda común indicada; los pendientes se excluyen. */
 export function serieMensual(
   txs: Transaction[],
-  meses = 6,
-  hasta: Date = new Date(),
-): MesSerie[] {
-  const series: MesSerie[] = [];
+  meses: number,
+  hasta: string,
+  monedaBase: string,
+): PuntoMensual[] {
+  const out: PuntoMensual[] = [];
+  const [hy, hm] = hasta.slice(0, 7).split("-").map(Number);
   for (let i = meses - 1; i >= 0; i--) {
-    const d = new Date(hasta.getFullYear(), hasta.getMonth() - i, 1);
-    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    series.push({ mes, ingresos: 0, costos: 0, gastos: 0, egresos: 0, ganancia: 0 });
+    const d = new Date(hy, hm - 1 - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    out.push({ mes: key, ingresos: 0, egresos: 0, ganancia: 0 });
   }
-  const index = new Map(series.map((s, i) => [s.mes, i]));
-  for (const t of txs) {
-    const mes = t.fecha.slice(0, 7);
-    const i = index.get(mes);
-    if (i === undefined) continue;
-    if (t.tipo === "ingreso") series[i].ingresos += t.monto;
-    else if (t.tipo === "costo") series[i].costos += t.monto;
-    else series[i].gastos += t.monto;
+  const index = new Map(out.map((p, idx) => [p.mes, idx]));
+  for (const tx of txs) {
+    const key = tx.fecha.slice(0, 7);
+    const idx = index.get(key);
+    if (idx === undefined) continue;
+    const v = montoEnBase(tx, monedaBase);
+    if (v === null) continue;
+    if (tx.tipo === "ingreso") out[idx].ingresos += v;
+    else if (tx.tipo === "gasto" || tx.tipo === "costo") out[idx].egresos += v;
   }
-  for (const s of series) {
-    s.egresos = s.costos + s.gastos;
-    s.ganancia = s.ingresos - s.egresos;
+  const digits = currencyDigits(monedaBase);
+  for (const p of out) {
+    p.ingresos = roundToCurrency(p.ingresos, digits);
+    p.egresos = roundToCurrency(p.egresos, digits);
+    p.ganancia = roundToCurrency(p.ingresos - p.egresos, digits);
   }
-  return series;
+  return out;
 }
 
 export interface CategoriaTotal {
   categoria: string;
   total: number;
+  /** Porcentaje sobre el total de los tipos considerados. */
   porcentaje: number;
 }
 
-/** Totales por categoría para un tipo, ordenados de mayor a menor. */
+/** Totales por categoría en la moneda común, con porcentaje del total. */
 export function totalesPorCategoria(
   txs: Transaction[],
-  tipos: TxType[],
+  monedaBase: string,
+  tipos: Transaction["tipo"][] = ["gasto", "costo"],
 ): CategoriaTotal[] {
-  const map = new Map<string, number>();
-  let total = 0;
-  for (const t of txs) {
-    if (!tipos.includes(t.tipo)) continue;
-    map.set(t.categoria, (map.get(t.categoria) ?? 0) + t.monto);
-    total += t.monto;
+  const acc = new Map<string, number>();
+  for (const tx of txs) {
+    if (!tipos.includes(tx.tipo)) continue;
+    const v = montoEnBase(tx, monedaBase);
+    if (v === null) continue;
+    acc.set(tx.categoria, (acc.get(tx.categoria) ?? 0) + v);
   }
-  return [...map.entries()]
-    .map(([categoria, t]) => ({
+  const digits = currencyDigits(monedaBase);
+  const redondeados = [...acc.entries()].map(([categoria, total]) => ({
+    categoria,
+    total: roundToCurrency(total, digits),
+  }));
+  const sumaRedondeada = redondeados.reduce((a, c) => a + c.total, 0);
+  return redondeados
+    .map(({ categoria, total }) => ({
       categoria,
-      total: t,
-      porcentaje: total > 0 ? (t / total) * 100 : 0,
+      total,
+      porcentaje: sumaRedondeada > 0 ? (total / sumaRedondeada) * 100 : 0,
     }))
     .sort((a, b) => b.total - a.total);
 }
 
-/** Últimas n transacciones por fecha descendente. */
-export function ultimasTransacciones(
+/** Últimas transacciones (sin conversión; se muestra su moneda original). */
+export function ultimasTransacciones(txs: Transaction[], limite = 6): Transaction[] {
+  return [...txs].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, limite);
+}
+
+/** Excedente estimado según la distribución configurada. */
+export function excedenteEstimado(
   txs: Transaction[],
-  n = 5,
-): Transaction[] {
-  return [...txs].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, n);
+  distribucion: Distribution,
+  monedaBase: string,
+): { operacion: number; reinversion: number; ahorro: number; moneda: string } {
+  const g = gananciaNeta(txs, monedaBase);
+  const base = g.ganancia > 0 ? g.ganancia : 0;
+  const digits = currencyDigits(monedaBase);
+  const pct = (p: number) => roundToCurrency((base * p) / 100, digits);
+  return {
+    operacion: pct(distribucion.operacion),
+    reinversion: pct(distribucion.reinversion),
+    ahorro: pct(distribucion.ahorro),
+    moneda: monedaBase.toUpperCase(),
+  };
 }
 
-/** Monto libre estimado para ahorrar = ganancia neta si es positiva. */
-export function excedenteEstimado(txs: Transaction[]): number {
-  return Math.max(0, gananciaNeta(txs));
+export function hoyISO(fecha: Date = new Date()): string {
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
 }
 
-export function hoyISO(d: Date = new Date()): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-export function haceDiasISO(n: number, d: Date = new Date()): string {
-  return hoyISO(new Date(d.getFullYear(), d.getMonth(), d.getDate() - n));
+export function haceDiasISO(dias: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - dias);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

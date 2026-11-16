@@ -242,7 +242,11 @@ export function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-10 text-center">
       <Image
-        src={`/brand/mascot_${mascot}.png`}
+        src={
+          mascot === "main"
+            ? "/brand/mascota/mascota.png"
+            : `/brand/mascota/expresiones/expresion-${mascot}.png`
+        }
         alt="Mascota de PLATIK"
         width={140}
         height={140}

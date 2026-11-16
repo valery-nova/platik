@@ -1,21 +1,117 @@
 "use client";
 
 import Image from "next/image";
-import { Info, TrendingDown, TrendingUp } from "lucide-react";
+import { Info, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { Card, CardHeader, DemoBadge, PanelSkeleton } from "@/components/ui";
 import { EvolucionChart, DistribucionChart } from "@/components/charts";
+import {
+  BotonActualizarCotizaciones,
+  EquivalenciaSecundaria,
+} from "@/components/equivalencia";
 import { usePlatik } from "@/lib/store";
 import {
-  gananciaNeta,
-  margenGanancia,
   serieMensual,
-  totalByType,
-  totalEgresos,
   totalesPorCategoria,
   txInRange,
   haceDiasISO,
+  hoyISO,
 } from "@/lib/finance";
 import { formatMoney, formatPct } from "@/lib/format";
+import {
+  diagnostico,
+  MIN_MOVIMIENTOS_PERIODO,
+  variacionPct,
+  type ResumenPeriodo,
+  type TonoHallazgo,
+} from "@/lib/insights";
+
+const TONO_PUNTO: Record<TonoHallazgo, string> = {
+  positivo: "bg-menta-600",
+  alerta: "bg-coral-600",
+  neutral: "bg-petroleo",
+  info: "bg-lavanda-600",
+};
+
+function ComparacionPeriodos({
+  actual,
+  previo,
+}: {
+  actual: ResumenPeriodo;
+  previo: ResumenPeriodo;
+}) {
+  const moneda = actual.moneda;
+  const suficiente = (r: ResumenPeriodo) =>
+    r.nIngresos > 0 && r.nIngresos + r.nEgresos >= MIN_MOVIMIENTOS_PERIODO;
+  const comparable = suficiente(actual) && suficiente(previo);
+  const filas = [
+    { etiqueta: "Ingresos", a: actual.ingresos, p: previo.ingresos, subirEsBueno: true },
+    { etiqueta: "Costos + gastos", a: actual.egresos, p: previo.egresos, subirEsBueno: false },
+    { etiqueta: "Ganancia neta", a: actual.ganancia, p: previo.ganancia, subirEsBueno: true },
+  ];
+  return (
+    <Card className="p-5">
+      <CardHeader
+        title="Comparación entre períodos"
+        subtitle="Últimos 30 días frente a los 30 días anteriores"
+      />
+      {comparable ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-sm">
+            <thead>
+              <tr className="text-left text-xs text-tinta-suave">
+                <th className="pb-2 font-medium">Concepto</th>
+                <th className="pb-2 text-right font-medium">Anterior</th>
+                <th className="pb-2 text-right font-medium">Actual</th>
+                <th className="pb-2 text-right font-medium">Variación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((f) => {
+                const v = variacionPct(f.a, f.p);
+                const mejor = v !== null && (f.subirEsBueno ? v > 0 : v < 0);
+                return (
+                  <tr key={f.etiqueta} className="border-t border-black/5">
+                    <td className="py-2 text-tinta">{f.etiqueta}</td>
+                    <td className="py-2 text-right text-tinta-suave">{formatMoney(f.p, moneda)}</td>
+                    <td className="py-2 text-right font-medium text-petroleo">{formatMoney(f.a, moneda)}</td>
+                    <td
+                      className={`py-2 text-right font-medium ${v === null ? "text-tinta-suave" : mejor ? "text-menta-700" : "text-coral-600"}`}
+                    >
+                      {v === null ? "—" : `${v > 0 ? "+" : ""}${formatPct(v)}`}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t border-black/5">
+                <td className="py-2 text-tinta">Margen</td>
+                <td className="py-2 text-right text-tinta-suave">
+                  {previo.margen === null ? "—" : formatPct(previo.margen)}
+                </td>
+                <td className="py-2 text-right font-medium text-petroleo">
+                  {actual.margen === null ? "—" : formatPct(actual.margen)}
+                </td>
+                <td className="py-2 text-right text-tinta-suave">
+                  {actual.margen === null || previo.margen === null
+                    ? "—"
+                    : `${actual.margen - previo.margen > 0 ? "+" : ""}${(actual.margen - previo.margen).toFixed(1)} pts`}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-2 text-xs text-tinta-suave">
+            «—» indica que el período anterior no tiene un valor positivo con el que comparar.
+          </p>
+        </div>
+      ) : (
+        <p className="py-4 text-sm text-tinta-suave">
+          Aún no hay datos suficientes para comparar períodos: necesitamos al
+          menos {MIN_MOVIMIENTOS_PERIODO} movimientos con un ingreso en cada
+          ventana de 30 días.
+        </p>
+      )}
+    </Card>
+  );
+}
 
 export default function AnalisisPage() {
   const { data, hydrated } = usePlatik();
@@ -26,23 +122,24 @@ export default function AnalisisPage() {
 
   // Dos ventanas contiguas de 30 días: [hoy-29, hoy] y [hoy-59, hoy-30].
   const ultimos30 = txInRange(txs, haceDiasISO(29));
-  const previos30 = txInRange(txs, haceDiasISO(59), haceDiasISO(30));
 
-  const ingresos = totalByType(ultimos30, "ingreso");
-  const costos = totalByType(ultimos30, "costo");
-  const gastos = totalByType(ultimos30, "gasto");
-  const egresos = totalEgresos(ultimos30);
-  const neta = gananciaNeta(ultimos30);
-  const margen = margenGanancia(ultimos30);
+  const diag = diagnostico(
+    txs,
+    moneda,
+    { desde: haceDiasISO(29), hasta: hoyISO() },
+    { desde: haceDiasISO(59), hasta: haceDiasISO(30) },
+  );
+  const { actual, previo, disponible, hallazgos } = diag;
+  const pendientes = actual.pendientesIngresos + actual.pendientesEgresos;
+  const gananciaNetaValor = actual.ganancia;
+  const margen = actual.margen;
 
-  const ingresosPrev = totalByType(previos30, "ingreso");
-  const variacionIngresos =
-    ingresosPrev > 0 ? ((ingresos - ingresosPrev) / ingresosPrev) * 100 : 0;
-
-  const serie = serieMensual(txs, 6);
-  const topGastos = totalesPorCategoria(ultimos30, ["gasto", "costo"]);
-  const mayorGasto = topGastos[0];
-  const topIngresos = totalesPorCategoria(ultimos30, ["ingreso"])[0];
+  const serie = serieMensual(txs, 6, hoyISO(), moneda);
+  const totalIngresos6m = serie.reduce((a, s) => a + s.ingresos, 0);
+  const displayMoneda = data.profile.displayCurrency?.toUpperCase();
+  const mostrarEquivalencia =
+    !!displayMoneda && displayMoneda !== moneda.toUpperCase();
+  const topGastos = totalesPorCategoria(ultimos30, moneda, ["gasto", "costo"]);
 
   // El gráfico muestra las 5 categorías mayores y agrupa el resto en
   // "Otros" para que la distribución sume 100% como la lista.
@@ -60,39 +157,6 @@ export default function AnalisisPage() {
           },
         ];
 
-  // Explicaciones deterministas generadas a partir de los números.
-  const explicaciones: string[] = [];
-  if (ultimos30.length === 0) {
-    explicaciones.push(
-      "No hay movimientos en los últimos 30 días. Registra transacciones en la pestaña Transacciones para ver aquí qué pasa con tu dinero.",
-    );
-  } else if (neta >= 0) {
-    explicaciones.push(
-      `En los últimos 30 días tu negocio generó ${formatMoney(neta, moneda)} de ganancia estimada: de cada Bs 100 que entraron, te quedaron aproximadamente Bs ${Math.round(margen)}.`,
-    );
-  } else {
-    explicaciones.push(
-      `En los últimos 30 días tus egresos superaron a tus ingresos por ${formatMoney(Math.abs(neta), moneda)}. Revisa los gastos más grandes para recuperar el equilibrio.`,
-    );
-  }
-  if (topIngresos) {
-    explicaciones.push(
-      `Tu principal fuente de ingreso fue “${topIngresos.categoria}” con ${formatMoney(topIngresos.total, moneda)} (${formatPct(topIngresos.porcentaje, 0)} de lo que entra).`,
-    );
-  }
-  if (mayorGasto) {
-    explicaciones.push(
-      `El egreso más grande fue “${mayorGasto.categoria}” con ${formatMoney(mayorGasto.total, moneda)} (${formatPct(mayorGasto.porcentaje, 0)} de lo que sale).`,
-    );
-  }
-  if (ingresosPrev > 0) {
-    explicaciones.push(
-      variacionIngresos >= 0
-        ? `Tus ingresos crecieron ${formatPct(Math.abs(variacionIngresos))} respecto al periodo anterior.`
-        : `Tus ingresos bajaron ${formatPct(Math.abs(variacionIngresos))} respecto al periodo anterior.`,
-    );
-  }
-
   return (
     <div className="space-y-6 pb-10">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -107,34 +171,92 @@ export default function AnalisisPage() {
         <DemoBadge />
       </div>
 
-      {/* KPIs del periodo */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Aviso de movimientos pendientes de conversión: los totales son
+          parciales y no deben presentarse como el periodo completo. */}
+      {pendientes > 0 && (
+        <Card className="border-lavanda-300 bg-lavanda-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="max-w-2xl text-sm text-petroleo">
+              <strong>{pendientes}</strong> movimiento(s) en otra moneda aún
+              no tienen cotización válida y <strong>no se incluyen</strong> en los
+              totales ni en las explicaciones de abajo. Se conservan con su
+              importe original; no inventamos equivalencias.
+            </p>
+            <BotonActualizarCotizaciones />
+          </div>
+        </Card>
+      )}
+
+      {/* Equivalencias informativas en la moneda de visualización */}
+      {mostrarEquivalencia && (
+        <Card className="p-5">
+          <CardHeader
+            title="Equivalencias informativas"
+            subtitle={`Solo lectura en ${displayMoneda}: no altera tus cifras reales.`}
+          />
+          <div className="space-y-2 text-sm">
+            {[
+              { etiqueta: "Ingresos (30 días)", monto: actual.ingresos },
+              { etiqueta: "Egresos (30 días)", monto: actual.egresos },
+              { etiqueta: "Ganancia neta (30 días)", monto: gananciaNetaValor },
+            ].map((f) => (
+              <div
+                key={f.etiqueta}
+                className="flex flex-wrap items-center justify-between gap-2"
+              >
+                <span className="text-tinta-suave">{f.etiqueta}</span>
+                <span className="font-semibold text-petroleo">
+                  {formatMoney(f.monto, moneda)}{" "}
+                  <EquivalenciaSecundaria
+                    monto={f.monto}
+                    moneda={moneda}
+                    displayMoneda={displayMoneda}
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* KPIs del periodo: ingresos, egresos, ganancia, margen y dinero
+          disponible son conceptos distintos y se muestran por separado. */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {[
           {
             titulo: "Ingresos totales",
-            valor: formatMoney(ingresos, moneda),
+            valor: formatMoney(actual.ingresos, moneda),
+            sub: "todo lo que entró en 30 días",
             icon: <TrendingUp size={18} />,
             cls: "text-menta-700",
           },
           {
             titulo: "Costos + gastos",
-            valor: formatMoney(egresos, moneda),
-            sub: `costos ${formatMoney(costos, moneda)} · gastos ${formatMoney(gastos, moneda)}`,
+            valor: formatMoney(actual.egresos, moneda),
+            sub: `costos ${formatMoney(actual.costos, moneda)} · gastos ${formatMoney(actual.gastos, moneda)}`,
             icon: <TrendingDown size={18} />,
             cls: "text-coral-600",
           },
           {
             titulo: "Ganancia neta estimada",
-            valor: formatMoney(neta, moneda),
-            icon: neta >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />,
-            cls: neta >= 0 ? "text-menta-700" : "text-coral-600",
+            valor: formatMoney(gananciaNetaValor, moneda),
+            sub: "ingresos − costos − gastos",
+            icon: gananciaNetaValor >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />,
+            cls: gananciaNetaValor >= 0 ? "text-menta-700" : "text-coral-600",
           },
           {
             titulo: "Margen de ganancia",
-            valor: formatPct(margen),
-            sub: margen >= 25 ? "margen saludable" : "margen ajustado",
+            valor: margen === null ? "—" : formatPct(margen),
+            sub: margen === null ? "sin ingresos en el periodo" : `ganancia por cada ${moneda} 100 vendidos`,
             icon: <Info size={18} />,
             cls: "text-petroleo",
+          },
+          {
+            titulo: "Dinero disponible",
+            valor: disponible.monto === null ? "No determinable" : formatMoney(disponible.monto, moneda),
+            sub: disponible.motivo,
+            icon: <Wallet size={18} />,
+            cls: disponible.monto === null ? "text-tinta-suave" : "text-petroleo",
           },
         ].map((k) => (
           <Card key={k.titulo} className="p-5">
@@ -147,6 +269,8 @@ export default function AnalisisPage() {
         ))}
       </div>
 
+      <ComparacionPeriodos actual={actual} previo={previo} />
+
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Evolución mensual */}
         <Card className="p-5">
@@ -155,6 +279,18 @@ export default function AnalisisPage() {
             subtitle="Ingresos y ganancia neta por mes"
           />
           <EvolucionChart serie={serie} moneda={moneda} />
+          {mostrarEquivalencia && (
+            <p className="mt-2 text-xs text-tinta-suave">
+              Equivalencia informativa de los ingresos de 6 meses (
+              {formatMoney(totalIngresos6m, moneda)}):{" "}
+              <EquivalenciaSecundaria
+                monto={totalIngresos6m}
+                moneda={moneda}
+                displayMoneda={displayMoneda}
+                compact
+              />
+            </p>
+          )}
         </Card>
 
         {/* Categorías de egreso */}
@@ -198,7 +334,7 @@ export default function AnalisisPage() {
       <Card className="p-6">
         <div className="flex flex-col gap-5 sm:flex-row">
           <Image
-            src="/brand/mascot_explica.png"
+            src="/brand/mascota/expresiones/expresion-explica.png"
             alt="Mascota de PLATIK explicando"
             width={130}
             height={130}
@@ -208,18 +344,27 @@ export default function AnalisisPage() {
             <h3 className="text-lg font-semibold text-petroleo">
               Tu negocio, explicado simple
             </h3>
-            <ul className="mt-3 space-y-2.5">
-              {explicaciones.map((e, i) => (
-                <li key={i} className="flex gap-2.5 text-sm text-tinta-suave">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-menta-600" />
-                  {e}
+            <ul className="mt-3 space-y-3">
+              {hallazgos.map((h) => (
+                <li key={h.id} className="flex gap-2.5 text-sm text-tinta-suave">
+                  <span
+                    className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONO_PUNTO[h.tono]}`}
+                    aria-hidden
+                  />
+                  <span>
+                    <span className="text-tinta">{h.texto}</span>
+                    <span className="mt-0.5 block text-xs text-tinta-suave">
+                      Cálculo: {h.calculo}
+                    </span>
+                  </span>
                 </li>
               ))}
             </ul>
             <p className="mt-4 rounded-xl bg-lavanda-50 px-4 py-3 text-xs text-lavanda-600">
-              Estas lecturas se calculan con fórmulas deterministas sobre tus
-              datos de demostración. En la fase 3, el copiloto con IA podrá
-              responder preguntas sobre ellos — siempre sin inventar cifras.
+              Estas lecturas se calculan con reglas deterministas sobre tus
+              movimientos registrados, sin enviar datos a terceros. Son
+              orientativas: PLATIK no es un asesor financiero, contable ni
+              tributario y no promete resultados.
             </p>
           </div>
         </div>

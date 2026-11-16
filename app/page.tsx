@@ -13,17 +13,17 @@ import {
 
 const PASOS = [
   {
-    mascota: "/brand/mascot_analiza.png",
+    mascota: "/brand/mascota/expresiones/expresion-analiza.png",
     titulo: "Analiza y piensa",
     texto: "Registra tus ingresos y gastos; PLATIK convierte tus datos en respuestas claras.",
   },
   {
-    mascota: "/brand/mascot_explica.png",
+    mascota: "/brand/mascota/expresiones/expresion-explica.png",
     titulo: "Explica y guía",
     texto: "Tus números, en lenguaje sencillo: márgenes, categorías y evolución mes a mes.",
   },
   {
-    mascota: "/brand/mascot_celebra.png",
+    mascota: "/brand/mascota/expresiones/expresion-celebra.png",
     titulo: "Celebra tus metas",
     texto: "Define metas de ahorro —incluso en dólares digitales— y mira tu progreso.",
   },
@@ -58,13 +58,13 @@ export default function LandingPage() {
       {/* Navbar */}
       <header className="sticky top-0 z-40 border-b border-petroleo/8 bg-marfil/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <Image
-            src="/brand/logo_horizontal.png"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logos/logo-without-slogan.svg"
             alt="PLATIK"
             width={150}
             height={42}
             className="h-9 w-auto"
-            priority
           />
           <Link
             href="/panel"
@@ -119,7 +119,7 @@ export default function LandingPage() {
           </div>
           <div className="anim-fade-up relative flex justify-center [animation-delay:120ms]">
             <Image
-              src="/brand/mascot_main.png"
+              src="/brand/mascota/mascota.png"
               alt="Ajolote, mascota oficial de PLATIK"
               width={420}
               height={342}
@@ -247,16 +247,16 @@ export default function LandingPage() {
           <div className="grid items-center gap-8 lg:grid-cols-[1fr_auto]">
             <div>
               <span className="mb-4 inline-block rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-menta">
-                Próximamente · USDC + Stellar
+                Demo en Stellar Testnet · USDC de prueba
               </span>
               <h2 className="text-2xl font-bold sm:text-3xl">
                 Ahorra en dólares digitales
               </h2>
               <p className="mt-4 max-w-xl text-white/80">
-                PLATIK te prepara para conectar tus metas de ahorro con USDC en la
-                red Stellar: una forma de reservar valor en dólares digitales sin
-                complicaciones. En esta versión, las metas son registros internos
-                de demostración — todavía no representan fondos en una blockchain.
+                Conecta tu wallet Stellar y aporta USDC a tus metas de ahorro, firmando
+                tú mismo cada transacción. En esta demo todo ocurre en{" "}
+                <strong>Stellar Testnet</strong> con USDC de prueba de Circle, sin
+                valor monetario real.
               </p>
               <ul className="mt-6 space-y-2 text-sm text-white/80">
                 <li className="flex items-center gap-2">
@@ -269,7 +269,7 @@ export default function LandingPage() {
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-menta" />
-                  Integración verificable en Stellar Testnet en la fase final.
+                  Cada aporte se verifica en Horizon y enlaza al explorador.
                 </li>
               </ul>
             </div>
@@ -284,7 +284,7 @@ export default function LandingPage() {
       <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6">
         <div className="flex flex-col items-center gap-6 rounded-3xl border border-menta/30 bg-menta-50 px-6 py-14 text-center">
           <Image
-            src="/brand/mascot_celebra.png"
+            src="/brand/mascota/expresiones/expresion-celebra.png"
             alt=""
             width={140}
             height={140}
@@ -310,8 +310,9 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-petroleo/8 bg-white py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6">
-          <Image
-            src="/brand/logo_full.png"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/logos/logo-with-slogan.svg"
             alt="PLATIK — Tu copiloto financiero con IA"
             width={200}
             height={81}
