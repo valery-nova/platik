@@ -188,7 +188,7 @@ export function Modal({
       className="fixed inset-0 z-50 flex items-end justify-center bg-petroleo/40 p-4 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-label="Diálogo"
       onClick={onClose}
     >
       <div

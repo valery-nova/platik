@@ -98,22 +98,22 @@ export function DistribucionEditor() {
       </div>
 
       <div className="space-y-4">
-        {dist.map((c) => {
+        {dist.map((c, catIndex) => {
           const importe = montos?.porCategoria[c.key] ?? null;
           return (
             <Field key={c.key} label={c.nombre} hint={c.descripcion || "Categoría personalizada"}>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1.5">
-                  <Input type="number" min={0} max={100} step={0.001} aria-label={`${c.nombre} en porcentaje`} value={c.porcentaje} onChange={(e) => setPct(c.key, e.target.value)} className="w-24" />
+                  <Input type="number" min={0} max={100} step={0.001} aria-label={`Porcentaje de categoría ${catIndex + 1}`} value={c.porcentaje} onChange={(e) => setPct(c.key, e.target.value)} className="w-24" />
                   <span className="text-sm text-tinta-suave">%</span>
                 </div>
                 {montos && disponible !== null ? (
                   <div className="flex items-center gap-1.5">
-                    <Input type="number" min={0} max={disponible} step={paso} aria-label={`${c.nombre} en ${moneda}`} value={importe ?? 0} onChange={(e) => setMonto(c.key, e.target.value)} className="w-36" />
+                    <Input type="number" min={0} max={disponible} step={paso} aria-label={`Monto de categoría ${catIndex + 1}`} value={importe ?? 0} onChange={(e) => setMonto(c.key, e.target.value)} className="w-36" />
                     <span className="text-sm text-tinta-suave">{moneda}</span>
                   </div>
                 ) : null}
-                <button onClick={() => quitarCategoria(c.key)} aria-label={`Quitar ${c.nombre}`} className="rounded-lg p-2 text-tinta-suave hover:bg-coral-50 hover:text-coral-600"><Trash2 size={16} /></button>
+                <button onClick={() => quitarCategoria(c.key)} aria-label={`Quitar categoría ${catIndex + 1}`} className="rounded-lg p-2 text-tinta-suave hover:bg-coral-50 hover:text-coral-600"><Trash2 size={16} /></button>
               </div>
             </Field>
           );

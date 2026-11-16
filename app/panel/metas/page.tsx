@@ -213,7 +213,7 @@ export default function MetasPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {data.goals.map((g) => {
+          {data.goals.map((g, goalIndex) => {
             const pct =
               g.montoObjetivo > 0
                 ? (g.ahorroAcumulado / g.montoObjetivo) * 100
@@ -271,14 +271,14 @@ export default function MetasPage() {
                   </Button>
                   <button
                     onClick={() => setModal(g)}
-                    aria-label={`Editar ${g.nombre}`}
+                    aria-label={`Editar meta ${goalIndex + 1}`}
                     className="rounded-xl border border-petroleo/15 p-2.5 text-tinta-suave hover:border-petroleo/40 hover:text-petroleo"
                   >
                     <Pencil size={15} />
                   </button>
                   <button
                     onClick={() => setConfirmDelete(g)}
-                    aria-label={`Eliminar ${g.nombre}`}
+                    aria-label={`Eliminar meta ${goalIndex + 1}`}
                     className="rounded-xl border border-petroleo/15 p-2.5 text-tinta-suave hover:border-coral-600/50 hover:text-coral-600"
                   >
                     <Trash2 size={15} />

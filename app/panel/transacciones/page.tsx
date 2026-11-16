@@ -375,7 +375,7 @@ export default function TransaccionesPage() {
           />
         ) : (
           <ul className="divide-y divide-petroleo/6">
-            {visibles.map((t) => (
+            {visibles.map((t, txIndex) => (
               <li
                 key={t.id}
                 className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-marfil sm:px-5"
@@ -429,14 +429,14 @@ export default function TransaccionesPage() {
                 <div className="flex shrink-0 gap-1">
                   <button
                     onClick={() => setModal(t)}
-                    aria-label={`Editar ${t.descripcion}`}
+                    aria-label={`Editar transacción ${txIndex + 1}`}
                     className="rounded-lg p-2 text-tinta-suave hover:bg-petroleo-50 hover:text-petroleo"
                   >
                     <Pencil size={16} />
                   </button>
                   <button
                     onClick={() => setConfirmDelete(t)}
-                    aria-label={`Eliminar ${t.descripcion}`}
+                    aria-label={`Eliminar transacción ${txIndex + 1}`}
                     className="rounded-lg p-2 text-tinta-suave hover:bg-coral-50 hover:text-coral-600"
                   >
                     <Trash2 size={16} />
