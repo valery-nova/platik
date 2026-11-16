@@ -236,6 +236,9 @@ export function BotonActualizarCotizaciones() {
         data.transactions,
         data.profile.moneda,
         getRateService(),
+        // El botón es la actualización controlada: fuerza la reconsulta
+        // para no reutilizar un fallo o cobertura cacheados (10 min).
+        { force: true },
       );
       for (const tx of res.actualizados) updateTransaction(tx);
       setEstado("ok");
