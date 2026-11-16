@@ -2,10 +2,11 @@
 
 import { MessageCircle } from "lucide-react";
 
-/** Enlace de feedback configurable con NEXT_PUBLIC_FEEDBACK_URL (Google Forms/Tally). */
+const DEFAULT_FEEDBACK_URL = "https://tally.so/r/NqXXGG";
+
+/** Enlace de feedback: NEXT_PUBLIC_FEEDBACK_URL tiene prioridad sobre el formulario por defecto. */
 export function FeedbackLink({ className = "" }: { className?: string }) {
-  const url = process.env.NEXT_PUBLIC_FEEDBACK_URL;
-  if (!url) return null;
+  const url = process.env.NEXT_PUBLIC_FEEDBACK_URL || DEFAULT_FEEDBACK_URL;
   return (
     <a
       href={url}
