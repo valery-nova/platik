@@ -23,7 +23,11 @@ export default async function AdminLoginPage({
           </p>
         ) : (
           <form action={login} className="mt-5 space-y-4">
-            {error ? (
+            {error === "locked" ? (
+              <p className="rounded-xl bg-lavanda-50 px-3.5 py-2.5 text-sm text-lavanda-600">
+                Demasiados intentos. Espera unos minutos y vuelve a intentarlo.
+              </p>
+            ) : error ? (
               <p className="rounded-xl bg-coral-50 px-3.5 py-2.5 text-sm text-coral-600">
                 Credenciales incorrectas.
               </p>

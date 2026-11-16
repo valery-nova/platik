@@ -1,7 +1,11 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export const ADMIN_COOKIE = "platik_admin_session";
+export const ADMIN_LOGIN_ATTEMPTS_COOKIE = "platik_admin_login_attempts";
 const DEFAULT_TTL_SECONDS = 8 * 60 * 60;
+const DEFAULT_LOGIN_MAX_ATTEMPTS = 5;
+const DEFAULT_LOGIN_LOCK_SECONDS = 5 * 60;
+const LOGIN_ATTEMPTS_TTL_SECONDS = 60 * 60;
 
 function sessionSecret(): string {
   return process.env.ADMIN_SESSION_SECRET?.trim() ?? "";
@@ -68,5 +72,60 @@ export function verifyAdminSessionToken(token: string | undefined): boolean {
     return data.role === "founder" && typeof data.exp === "number" && data.exp * 1000 > Date.now();
   } catch {
     return false;
+  }
+}
+
+function loginMaxAttempts(): number {
+  const raw = Number(process.env.ADMIN_LOGIN_MAX_ATTEMPTS ?? DEFAULT_LOGIN_MAX_ATTEMPTS);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_LOGIN_MAX_ATTEMPTS;
+}
+
+function loginLockSeconds(): number {
+  const raw = Number(process.env.ADMIN_LOGIN_LOCK_SECONDS ?? DEFAULT_LOGIN_LOCK_SECONDS);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_LOGIN_LOCK_SECONDS;
+}
+
+export function adminLoginMaxAttempts(): number {
+  return loginMaxAttempts();
+}
+
+export function adminLoginLockSeconds(): number {
+  return loginLockSeconds();
+}
+
+export function adminLoginAttemptsCookieMaxAgeSeconds(): number {
+  return LOGIN_ATTEMPTS_TTL_SECONDS;
+}
+
+export function createAdminLoginAttemptsToken(count: number, lockedUntil: number): string {
+  const payload = Buffer.from(
+    JSON.stringify({ count: Math.max(0, Math.floor(count)), lockedUntil: Math.max(0, Math.floor(lockedUntil)) }),
+    "utf8",
+  ).toString("base64url");
+  return `${payload}.${sign(payload)}`;
+}
+
+export function verifyAdminLoginAttemptsToken(token: string | undefined): {
+  count: number;
+  lockedUntil: number;
+} {
+  const empty = { count: 0, lockedUntil: 0 };
+  if (!sessionSecret() || !token) return empty;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return empty;
+  if (!safeEqual(signature, sign(payload))) return empty;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+      count?: unknown;
+      lockedUntil?: unknown;
+    };
+    const count = typeof data.count === "number" && Number.isFinite(data.count) ? Math.max(0, Math.floor(data.count)) : 0;
+    const lockedUntil =
+      typeof data.lockedUntil === "number" && Number.isFinite(data.lockedUntil)
+        ? Math.max(0, Math.floor(data.lockedUntil))
+        : 0;
+    return { count, lockedUntil };
+  } catch {
+    return empty;
   }
 }
