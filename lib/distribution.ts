@@ -142,7 +142,7 @@ export function migrateDistributionCategories(
       });
       vistos.add(key);
     }
-    if (out.length > 0) return out;
+    return out;
   }
 
   if (input && typeof input === "object") {

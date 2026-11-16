@@ -212,6 +212,7 @@ test("DB-7: migrateDistributionCategories acepta lista nueva y objeto antiguo", 
       ["capital_operativo", 70],
     ],
   );
+  assert.deepEqual(migrateDistributionCategories([]), []);
   const antiguo = migrateDistributionCategories({ operacion: 40, reinversion: 30, ahorro: 30 });
   assert.deepEqual(
     antiguo.map((c) => [c.key, c.porcentaje]),
