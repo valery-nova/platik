@@ -6,11 +6,14 @@
  * - vigente: el dato es del día o de ayer.
  * - anterior_vigente: el dato es el último publicado (típicamente del
  *   último día hábil: fines de semana y feriados no invalidan la tasa).
- * - desactualizada: demasiado antigua; no se usa para convertir.
- * - no_disponible: no hay cotización.
+ * - desactualizada: demasiado antigua o marcada como expirada por la
+ *   fuente; no se usa para convertir.
+ * - no_disponible: no hay cotización o la fuente la marcó como
+ *   no disponible; nunca se evalúa su fecha.
  *
- * Las conversiones solo se permiten con cotizaciones vigente o
- * anterior_vigente.
+ * Solo `status: "valid"` llega a la evaluación de frescura; ningún otro
+ * estado puede clasificarse como usable. Las conversiones solo se
+ * permiten con cotizaciones vigente o anterior_vigente.
  */
 import type { ExchangeRateQuote } from "./rates";
 
@@ -62,6 +65,8 @@ export function clasificarCotizacion(
   policy: FreshnessPolicy = DEFAULT_FRESHNESS_POLICY,
 ): QuoteFreshness {
   if (!quote) return "no_disponible";
+  // Validación explícita de estados: solo "valid" se evalúa por fecha.
+  if (quote.status === "unavailable") return "no_disponible";
   if (quote.status === "expired") return "desactualizada";
   const fecha = fechaDato(quote);
   if (!fecha) return "desactualizada";

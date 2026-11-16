@@ -1,8 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RateCache, RATES_CACHE_KEY } from "../lib/currency/cache";
-import { clasificarCotizacion } from "../lib/currency/freshness";
+import { clasificarCotizacion, cotizacionUsable } from "../lib/currency/freshness";
+import { refrescarPendientes } from "../lib/currency/refresh";
 import { RateService } from "../lib/currency/service";
+import { buildConversionFields } from "../lib/currency/rates";
+import type { Transaction } from "../lib/types";
 import type {
   ExchangeRateProvider,
   ExchangeRateQuote,
@@ -253,4 +256,89 @@ test("vigencia: ventana 2-4 días es anterior_vigente, fuera es desactualizada",
     clasificarCotizacion(quote({ status: "expired" }), AHORA),
     "desactualizada",
   );
+  // Un estado unavailable nunca se evalúa por fecha: es no_disponible.
+  assert.equal(
+    clasificarCotizacion(quote({ status: "unavailable" }), AHORA),
+    "no_disponible",
+  );
+});
+
+// ——— Estados de cotización en el motor ———
+
+test("unavailable con fecha de hoy no se utiliza (directa)", async () => {
+  const provider = new ScriptedProvider({
+    "USD|BOB": quote({ status: "unavailable", publishedAt: "2026-11-16" }),
+  });
+  const r = await servicio(provider).quote("USD", "BOB");
+  assert.equal(r.quote, null);
+  assert.equal(r.freshness, "no_disponible");
+});
+
+test("expired con fecha de hoy no se utiliza (directa)", async () => {
+  const provider = new ScriptedProvider({
+    "USD|BOB": quote({ status: "expired", publishedAt: "2026-11-16" }),
+  });
+  const r = await servicio(provider).quote("USD", "BOB");
+  assert.equal(r.freshness, "desactualizada");
+  assert.equal(r.quote?.status, "expired");
+  assert.ok(!cotizacionUsable(r.freshness));
+  assert.deepEqual(buildConversionFields("USD", "BOB", 100, r.quote), {});
+});
+
+test("cruzada con una pata unavailable se rechaza", async () => {
+  const provider = new ScriptedProvider({
+    "EUR|USD": quote({ from: "EUR", to: "USD", rate: 1.1 }),
+    "USD|BOB": quote({ from: "USD", to: "BOB", rate: 6.9, status: "unavailable" }),
+  });
+  const r = await servicio(provider).quote("EUR", "BOB");
+  assert.equal(r.quote, null);
+  assert.equal(r.freshness, "no_disponible");
+});
+
+test("cruzada con una pata expired se rechaza", async () => {
+  const provider = new ScriptedProvider({
+    "EUR|USD": quote({ from: "EUR", to: "USD", rate: 1.1 }),
+    "USD|BOB": quote({ from: "USD", to: "BOB", rate: 6.9, status: "expired" }),
+  });
+  const r = await servicio(provider).quote("EUR", "BOB");
+  assert.equal(r.quote, null);
+  assert.equal(r.freshness, "no_disponible");
+});
+
+test("cotización valid y reciente sigue funcionando", async () => {
+  const provider = new ScriptedProvider({ "USD|BOB": quote({}) });
+  const r = await servicio(provider).quote("USD", "BOB");
+  assert.equal(r.quote?.status, "valid");
+  assert.equal(r.freshness, "vigente");
+  assert.deepEqual(buildConversionFields("USD", "BOB", 100, r.quote), {
+    baseAmount: 690,
+    baseCurrency: "BOB",
+    exchangeRate: 6.9,
+    exchangeRateSource: "mock",
+    exchangeRateDate: "2026-11-16T10:00:00Z",
+    exchangeRateType: "mid",
+    exchangeRatePublishedAt: "2026-11-16",
+  });
+});
+
+test("unavailable no modifica snapshots ni importes de movimientos", async () => {
+  const pendiente = {
+    id: "p",
+    tipo: "ingreso" as const,
+    monto: 100,
+    categoria: "Ventas",
+    descripcion: "demo",
+    fecha: "2026-11-01",
+    moneda: "USD",
+  } satisfies Transaction;
+  const provider = new ScriptedProvider({
+    "USD|BOB": quote({ status: "unavailable", publishedAt: "2026-11-16" }),
+  });
+  const res = await refrescarPendientes([pendiente], "BOB", servicio(provider));
+  assert.equal(res.convertidos, 0);
+  assert.equal(res.actualizados.length, 0);
+  assert.equal(res.pendientes, 1);
+  assert.equal(res.transactions[0].baseAmount, undefined);
+  assert.equal(res.transactions[0].exchangeRate, undefined);
+  assert.equal(res.transactions[0].monto, 100);
 });

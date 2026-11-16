@@ -8,8 +8,13 @@
  * - Nunca inventa equivalencias: sin cotización válida devuelve
  *   no_disponible y el movimiento queda pendiente.
  * - No convierte con cotizaciones desactualizadas.
- * - Una tasa cruzada solo se construye con patas de la misma fuente,
- *   misma fecha de publicación y mismo tipo de tasa; si no, es pendiente.
+ * - Una tasa cruzada solo se construye con patas del mismo proveedor,
+ *   misma fecha de publicación y mismo tipo de tasa; si no, es
+ *   pendiente. Las fuentes subyacentes de cada pata pueden diferir y
+ *   se conservan por separado (trazabilidad).
+ * - Solo status "valid" puede clasificarse como usable: "expired" es
+ *   desactualizada y "unavailable" es no_disponible, en directas y en
+ *   cada pata de una cruzada.
  * - Los snapshots históricos de los movimientos nunca se recalculan aquí.
  */
 import { isCurrencyCode } from "./catalog";
@@ -53,7 +58,12 @@ function tipoTasa(q: ExchangeRateQuote): string {
   return q.rateType ?? "reference";
 }
 
-/** Dos patas solo son combinables si comparten fuente, fecha y tipo. */
+/**
+ * Dos patas solo son combinables si comparten proveedor, fecha de
+ * publicación y tipo de tasa. Sus fuentes subyacentes (underlyingProviders)
+ * pueden ser distintas: se registran por pata y no se afirma una fuente
+ * única.
+ */
 function patasCompatibles(a: ExchangeRateQuote, b: ExchangeRateQuote): boolean {
   if (a.provider !== b.provider) return false;
   if (!a.publishedAt || !b.publishedAt) return false;
@@ -156,7 +166,8 @@ export class RateService {
     const direct = await this.directQuote(f, t, options);
     if (direct) {
       const freshness = clasificarCotizacion(direct, this.now(), this.policy);
-      if (cotizacionUsable(freshness)) {
+      // Doble protección: solo status "valid" con frescura usable.
+      if (direct.status === "valid" && cotizacionUsable(freshness)) {
         return { quote: { ...direct, status: "valid" }, freshness };
       }
     }
@@ -164,7 +175,7 @@ export class RateService {
     const cross = await this.crossQuote(f, t, options);
     if (cross) return cross;
 
-    if (direct) {
+    if (direct && direct.status !== "unavailable") {
       // Existe el dato pero no cumple la vigencia: no se convierte.
       return { quote: { ...direct, status: "expired" }, freshness: "desactualizada" };
     }
