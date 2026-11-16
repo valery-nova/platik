@@ -16,6 +16,7 @@ import {
   Select,
 } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
+import { track } from "@/lib/analytics";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
 import { currencyDigits, currencyStep, listCurrencies } from "@/lib/currency/catalog";
 import { roundToCurrency } from "@/lib/currency/decimal";
@@ -141,7 +142,7 @@ function GoalForm({
 }
 
 export default function MetasPage() {
-  const { data, hydrated, addGoal, updateGoal, deleteGoal, addAporte } =
+  const { data, hydrated, mode, addGoal, updateGoal, deleteGoal, addAporte } =
     usePlatik();
 
   const [modal, setModal] = useState<"nueva" | Goal | null>(null);
@@ -261,6 +262,7 @@ export default function MetasPage() {
                     variant="outline"
                     className="flex-1"
                     onClick={() => {
+                      track("goal_contribution_started", { feature: "goal", mode });
                       setAporteGoal(g);
                       setMontoAporte("");
                     }}
@@ -314,6 +316,7 @@ export default function MetasPage() {
             onCancel={() => setModal(null)}
             onSubmit={(f) => {
               if (modal === "nueva") {
+                track("goal_created", { moneda: f.moneda, mode });
                 addGoal({
                   nombre: f.nombre.trim(),
                   montoObjetivo: roundToCurrency(Number(f.montoObjetivo), currencyDigits(f.moneda)),
@@ -357,6 +360,7 @@ export default function MetasPage() {
                 return;
               }
               addAporte(aporteGoal.id, monto);
+              track("goal_contribution_completed", { moneda: aporteGoal.moneda, mode });
               setAporteGoal(null);
               notify(`Aporte de ${formatMoney(monto, aporteGoal.moneda)} registrado.`);
             }}

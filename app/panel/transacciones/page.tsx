@@ -22,6 +22,7 @@ import {
   Select,
 } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
+import { track } from "@/lib/analytics";
 import { CATEGORIAS } from "@/lib/categories";
 import { hoyISO } from "@/lib/finance";
 import { formatFecha, formatMoney } from "@/lib/format";
@@ -129,6 +130,7 @@ function TransactionForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!valido) {
+      track("transaction_failed", { reason: "validation", feature: "transaction" });
       setError(
         "Revisa los datos: el monto debe ser válido para la moneda elegida, la descripción no puede estar vacía y la fecha es obligatoria.",
       );
@@ -252,6 +254,7 @@ export default function TransaccionesPage() {
   const {
     data,
     hydrated,
+    mode,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -344,7 +347,7 @@ export default function TransaccionesPage() {
           </Select>
           <Select
             value={filtroCategoria}
-            onChange={(e) => setFiltroCategoria(e.target.value)}
+            onChange={(e) => { const v = e.target.value; setFiltroCategoria(v); track("category_selected", { filter: "categoria", source: "transacciones" }); }}
             aria-label="Filtrar por categoría"
           >
             <option value="todas">Todas las categorías</option>
@@ -475,6 +478,7 @@ export default function TransaccionesPage() {
             onCancel={() => setModal(null)}
             onSubmit={(f) => {
               void (async () => {
+                try {
                 const monto = roundToCurrency(Number(f.monto), currencyDigits(f.moneda));
                 // Al editar sin cambiar importe ni moneda se preserva el
                 // snapshot histórico tal cual; solo se busca cotización
@@ -505,12 +509,19 @@ export default function TransaccionesPage() {
                 };
                 if (modal === "nueva") {
                   addTransaction(tx);
+                  track("transaction_created", { tipo: f.tipo, moneda: f.moneda, mode, has_conversion: Object.keys(conversion).length > 0 });
+                  if (f.tipo === "ingreso") track("income_created", { moneda: f.moneda, mode });
+                  if (f.tipo === "gasto" || f.tipo === "costo") track("expense_created", { moneda: f.moneda, mode });
                   notify("Transacción registrada correctamente.");
                 } else {
                   updateTransaction({ ...tx, id: modal.id });
                   notify("Transacción actualizada.");
                 }
                 setModal(null);
+                } catch {
+                  track("transaction_failed", { reason: "save", feature: "transaction" });
+                  notify("No se pudo registrar la transacción.");
+                }
               })();
             }}
           />
