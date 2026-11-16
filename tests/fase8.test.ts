@@ -370,3 +370,34 @@ test("el caché evita solicitudes repetidas y registra última actualización", 
   assert.equal(provider.calls.length, 1);
   assert.ok(service.ultimaActualizacion());
 });
+
+test("el caché distingue cotizaciones por fecha solicitada", async () => {
+  class DatedProvider implements ExchangeRateProvider {
+    readonly id = "dated";
+    readonly name = "Con fecha";
+    calls: string[] = [];
+    async getRate(
+      from: string,
+      to: string,
+      options?: { date?: string },
+    ): Promise<ExchangeRateQuote | null> {
+      this.calls.push(`${from}|${to}|${options?.date ?? ""}`);
+      return quote({
+        from,
+        to,
+        rate: options?.date ? 7.1 : 6.9,
+        publishedAt: "2026-11-16",
+      });
+    }
+  }
+  const provider = new DatedProvider();
+  const service = servicio(provider);
+  const sinFecha = await service.quote("USD", "BOB");
+  const conFecha = await service.quote("USD", "BOB", { date: "2026-01-01" });
+  assert.equal(sinFecha.quote?.rate, 6.9);
+  assert.equal(conFecha.quote?.rate, 7.1);
+  // Repetir sin fecha usa la entrada sin fecha, no la histórica.
+  const otra = await service.quote("USD", "BOB");
+  assert.equal(otra.quote?.rate, 6.9);
+  assert.equal(provider.calls.filter((c) => c.startsWith("USD|BOB")).length, 2);
+});

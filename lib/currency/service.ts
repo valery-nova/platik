@@ -90,8 +90,10 @@ export class RateService {
     return this.cache.ultimaActualizacion();
   }
 
-  private cacheKey(from: string, to: string): string {
-    return `${from}|${to}`;
+  private cacheKey(from: string, to: string, date?: string): string {
+    // La fecha forma parte de la clave: una cotización histórica nunca se
+    // devuelve como si fuera la actual, ni viceversa.
+    return `${from}|${to}|${date ?? ""}`;
   }
 
   /**
@@ -108,7 +110,7 @@ export class RateService {
     if (f === t) return null;
     if (!isCurrencyCode(f) || !isCurrencyCode(t)) return null;
 
-    const key = this.cacheKey(f, t);
+    const key = this.cacheKey(f, t, options?.date);
     if (!options?.force) {
       const cached = this.cache.get(key);
       if (cached) return cached.quote;
