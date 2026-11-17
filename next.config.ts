@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    agentUpgrade: "security",
+  },
   // Headers de seguridad básicos para una app 100% cliente (sin cookies ni
   // datos de sesión en servidor). No hay superficie de autenticación que
   // proteger aquí; estos headers mitigan clickjacking, sniffing y fugas de
