@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { AnalyticsTracker } from "@/components/analytics-tracker";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -20,7 +23,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={montserrat.variable}>
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <AnalyticsTracker />
+        {children}
+        <Analytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }

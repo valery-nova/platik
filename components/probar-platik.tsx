@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowRight, PlayCircle, Sparkles } from "lucide-react";
 import { writeMode, type PlatikMode } from "@/lib/storage";
+import { track } from "@/lib/analytics";
 
 const OPCIONES: {
   mode: PlatikMode;
@@ -39,6 +40,7 @@ export function ProbarPlatik({
   const router = useRouter();
 
   function elegir(mode: PlatikMode) {
+    track("demo_started", { mode });
     writeMode(window.localStorage, mode);
     setOpen(false);
     router.push("/panel");

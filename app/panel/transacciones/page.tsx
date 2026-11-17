@@ -22,6 +22,7 @@ import {
   Select,
 } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
+import { track } from "@/lib/analytics";
 import { CATEGORIAS } from "@/lib/categories";
 import { hoyISO } from "@/lib/finance";
 import { formatFecha, formatMoney } from "@/lib/format";
@@ -129,6 +130,7 @@ function TransactionForm({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!valido) {
+      track("transaction_failed", { reason: "validation", feature: "transaction" });
       setError(
         "Revisa los datos: el monto debe ser válido para la moneda elegida, la descripción no puede estar vacía y la fecha es obligatoria.",
       );
@@ -252,6 +254,7 @@ export default function TransaccionesPage() {
   const {
     data,
     hydrated,
+    mode,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -344,7 +347,7 @@ export default function TransaccionesPage() {
           </Select>
           <Select
             value={filtroCategoria}
-            onChange={(e) => setFiltroCategoria(e.target.value)}
+            onChange={(e) => { const v = e.target.value; setFiltroCategoria(v); track("category_selected", { filter: "categoria", source: "transacciones" }); }}
             aria-label="Filtrar por categoría"
           >
             <option value="todas">Todas las categorías</option>
@@ -372,7 +375,7 @@ export default function TransaccionesPage() {
           />
         ) : (
           <ul className="divide-y divide-petroleo/6">
-            {visibles.map((t) => (
+            {visibles.map((t, txIndex) => (
               <li
                 key={t.id}
                 className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-marfil sm:px-5"
@@ -391,7 +394,7 @@ export default function TransaccionesPage() {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-tinta">
+                  <p id={`tx-desc-${txIndex}`} className="truncate text-sm font-medium text-tinta">
                     {t.descripcion}
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-tinta-suave">
@@ -426,16 +429,18 @@ export default function TransaccionesPage() {
                 <div className="flex shrink-0 gap-1">
                   <button
                     onClick={() => setModal(t)}
-                    aria-label={`Editar ${t.descripcion}`}
+                    aria-labelledby={`tx-edit-${txIndex} tx-desc-${txIndex}`}
                     className="rounded-lg p-2 text-tinta-suave hover:bg-petroleo-50 hover:text-petroleo"
                   >
+                    <span id={`tx-edit-${txIndex}`} className="sr-only">Editar transacción</span>
                     <Pencil size={16} />
                   </button>
                   <button
                     onClick={() => setConfirmDelete(t)}
-                    aria-label={`Eliminar ${t.descripcion}`}
+                    aria-labelledby={`tx-delete-${txIndex} tx-desc-${txIndex}`}
                     className="rounded-lg p-2 text-tinta-suave hover:bg-coral-50 hover:text-coral-600"
                   >
+                    <span id={`tx-delete-${txIndex}`} className="sr-only">Eliminar transacción</span>
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -475,6 +480,7 @@ export default function TransaccionesPage() {
             onCancel={() => setModal(null)}
             onSubmit={(f) => {
               void (async () => {
+                try {
                 const monto = roundToCurrency(Number(f.monto), currencyDigits(f.moneda));
                 // Al editar sin cambiar importe ni moneda se preserva el
                 // snapshot histórico tal cual; solo se busca cotización
@@ -505,12 +511,19 @@ export default function TransaccionesPage() {
                 };
                 if (modal === "nueva") {
                   addTransaction(tx);
+                  track("transaction_created", { tipo: f.tipo, moneda: f.moneda, mode, has_conversion: Object.keys(conversion).length > 0 });
+                  if (f.tipo === "ingreso") track("income_created", { moneda: f.moneda, mode });
+                  if (f.tipo === "gasto" || f.tipo === "costo") track("expense_created", { moneda: f.moneda, mode });
                   notify("Transacción registrada correctamente.");
                 } else {
                   updateTransaction({ ...tx, id: modal.id });
                   notify("Transacción actualizada.");
                 }
                 setModal(null);
+                } catch {
+                  track("transaction_failed", { reason: "save", feature: "transaction" });
+                  notify("No se pudo registrar la transacción.");
+                }
               })();
             }}
           />

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Badge, Button, Card, CardHeader, Field, Input, Modal, Select } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
+import { track } from "@/lib/analytics";
 import {
   CIRCLE_FAUCET_URL,
   explorerAccountUrl,
@@ -196,12 +197,14 @@ export function StellarAhorro() {
       await w.refreshBalances();
     } catch (err) {
       const e = toStellarError(err);
+      track("feature_error", { feature: "stellar_trustline", reason: e.code });
       setTrustState("error");
       setTrustError(e.code === "wallet_rejected" ? "Rechazaste la firma en la wallet." : e.message);
     }
   }
 
   function abrirAporte() {
+    track("usdc_deposit_started", { feature: "stellar", network: "testnet" });
     const usdcGoal = goals.find((g) => /usdc|d[oó]lar/i.test(g.nombre));
     setGoalId(usdcGoal?.id ?? goals[0]?.id ?? "");
     setMonto("");
@@ -240,6 +243,7 @@ export function StellarAhorro() {
       setActual(a);
       setPaso("revision");
     } catch (err) {
+      track("feature_error", { feature: "usdc_deposit", reason: toStellarError(err).code });
       setFormError(toStellarError(err).message);
     }
   }
@@ -285,6 +289,7 @@ export function StellarAhorro() {
       upsertAporteStellar(a);
       setActual(a);
       setPaso(rechazado ? "cancelada" : "fallida");
+      track("feature_error", { feature: "usdc_deposit", reason: rechazado ? "wallet_rejected" : e.code });
       return;
     }
 
@@ -307,10 +312,13 @@ export function StellarAhorro() {
       upsertAporteStellar(a);
       setActual(a);
       setPaso(s.successful ? "confirmada" : "fallida");
+      if (s.successful) track("usdc_deposit_completed", { feature: "stellar", network: "testnet" });
+      else track("feature_error", { feature: "usdc_deposit", reason: "failed" });
       void w.refreshBalances();
     } catch {
       // Sin confirmación a tiempo: queda "enviada" y se reverifica al recargar
       // o con el botón del historial. Se puede cerrar el modal sin perderla.
+      track("feature_error", { feature: "usdc_deposit", reason: "confirmation_timeout" });
       setPaso("pendiente");
     }
   }

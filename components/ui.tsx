@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { usePlatik } from "@/lib/store";
 
 export function Card({
@@ -140,16 +140,18 @@ export function DemoBadge() {
 
 export function Field({
   label,
+  labelId,
   children,
   hint,
 }: {
   label: string;
+  labelId?: string;
   children: ReactNode;
   hint?: string;
 }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-sm font-medium text-petroleo">
+      <span id={labelId} className="mb-1.5 block text-sm font-medium text-petroleo">
         {label}
       </span>
       {children}
@@ -182,13 +184,14 @@ export function Modal({
   title: string;
   children: ReactNode;
 }) {
+  const titleId = useId();
   if (!open) return null;
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-petroleo/40 p-4 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
-      aria-label={title}
+      aria-labelledby={titleId}
       onClick={onClose}
     >
       <div
@@ -196,7 +199,7 @@ export function Modal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-petroleo">{title}</h2>
+          <h2 id={titleId} className="text-lg font-semibold text-petroleo">{title}</h2>
           <button
             onClick={onClose}
             aria-label="Cerrar"

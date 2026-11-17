@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Globe2, Landmark, PiggyBank } from "lucide-react";
 import { Button, Card, Field, Select } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
+import { track } from "@/lib/analytics";
 import {
   countryName,
   currencyName,
@@ -47,11 +48,18 @@ const OPCIONES: {
  * Bolivia, USD o una lista cerrada: el catálogo es ISO completo.
  */
 export function OnboardingMoneda() {
-  const { data, hydrated, updateProfile } = usePlatik();
+  const { data, hydrated, mode, updateProfile } = usePlatik();
   const [opcion, setOpcion] = useState<Opcion | null>(null);
   const [countryCode, setCountryCode] = useState("");
   const [moneda, setMoneda] = useState("");
   const [displayCurrency, setDisplayCurrency] = useState("");
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (!hydrated || data.profile.onboardingDone || started.current) return;
+    started.current = true;
+    track("onboarding_started", { mode });
+  }, [hydrated, data.profile.onboardingDone, mode]);
 
   if (!hydrated || data.profile.onboardingDone) return null;
 
@@ -89,6 +97,7 @@ export function OnboardingMoneda() {
         opcion === "bolivia" ? "local" : opcion === "usd" ? "usd" : "custom",
       onboardingDone: true,
     };
+    track("onboarding_completed", { option: opcion ?? "custom", mode });
     updateProfile(next);
   }
 

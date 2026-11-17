@@ -6,6 +6,7 @@
  * No guarda claves ni XDR: solo dirección pública y datos de Horizon.
  */
 import { useCallback, useEffect, useState } from "react";
+import { track } from "@/lib/analytics";
 import { getBalances } from "./account";
 import { StellarError, toStellarError } from "./errors";
 import type { BalancesInfo, WalletInfo } from "./types";
@@ -75,6 +76,7 @@ export function useStellarWallet(): WalletState {
 
   const handleError = useCallback((err: unknown) => {
     const e = toStellarError(err);
+    track("feature_error", { feature: "stellar_wallet", reason: e.code });
     setWallet(null);
     setBalances(null);
     setError(e);
@@ -116,8 +118,10 @@ export function useStellarWallet(): WalletState {
   const connect = useCallback(async () => {
     setStatus("connecting");
     setError(null);
+    track("wallet_connect_clicked", { network: "testnet" });
     try {
       await applyWallet(await connectWallet());
+      track("wallet_connected", { network: "testnet" });
     } catch (err) {
       handleError(err);
     }

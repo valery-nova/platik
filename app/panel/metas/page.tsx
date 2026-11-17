@@ -16,6 +16,7 @@ import {
   Select,
 } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
+import { track } from "@/lib/analytics";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
 import { currencyDigits, currencyStep, listCurrencies } from "@/lib/currency/catalog";
 import { roundToCurrency } from "@/lib/currency/decimal";
@@ -141,7 +142,7 @@ function GoalForm({
 }
 
 export default function MetasPage() {
-  const { data, hydrated, addGoal, updateGoal, deleteGoal, addAporte } =
+  const { data, hydrated, mode, addGoal, updateGoal, deleteGoal, addAporte } =
     usePlatik();
 
   const [modal, setModal] = useState<"nueva" | Goal | null>(null);
@@ -212,7 +213,7 @@ export default function MetasPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {data.goals.map((g) => {
+          {data.goals.map((g, goalIndex) => {
             const pct =
               g.montoObjetivo > 0
                 ? (g.ahorroAcumulado / g.montoObjetivo) * 100
@@ -222,7 +223,7 @@ export default function MetasPage() {
               <Card key={g.id} className="flex flex-col p-5">
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="font-semibold text-petroleo">{g.nombre}</h3>
+                    <h3 id={`goal-name-${goalIndex}`} className="font-semibold text-petroleo">{g.nombre}</h3>
                     {g.fechaObjetivo && (
                       <p className="mt-0.5 text-xs text-tinta-suave">
                         Objetivo: {formatFecha(g.fechaObjetivo)}
@@ -261,6 +262,7 @@ export default function MetasPage() {
                     variant="outline"
                     className="flex-1"
                     onClick={() => {
+                      track("goal_contribution_started", { feature: "goal", mode });
                       setAporteGoal(g);
                       setMontoAporte("");
                     }}
@@ -269,16 +271,18 @@ export default function MetasPage() {
                   </Button>
                   <button
                     onClick={() => setModal(g)}
-                    aria-label={`Editar ${g.nombre}`}
+                    aria-labelledby={`goal-edit-${goalIndex} goal-name-${goalIndex}`}
                     className="rounded-xl border border-petroleo/15 p-2.5 text-tinta-suave hover:border-petroleo/40 hover:text-petroleo"
                   >
+                    <span id={`goal-edit-${goalIndex}`} className="sr-only">Editar meta</span>
                     <Pencil size={15} />
                   </button>
                   <button
                     onClick={() => setConfirmDelete(g)}
-                    aria-label={`Eliminar ${g.nombre}`}
+                    aria-labelledby={`goal-delete-${goalIndex} goal-name-${goalIndex}`}
                     className="rounded-xl border border-petroleo/15 p-2.5 text-tinta-suave hover:border-coral-600/50 hover:text-coral-600"
                   >
+                    <span id={`goal-delete-${goalIndex}`} className="sr-only">Eliminar meta</span>
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -314,6 +318,7 @@ export default function MetasPage() {
             onCancel={() => setModal(null)}
             onSubmit={(f) => {
               if (modal === "nueva") {
+                track("goal_created", { moneda: f.moneda, mode });
                 addGoal({
                   nombre: f.nombre.trim(),
                   montoObjetivo: roundToCurrency(Number(f.montoObjetivo), currencyDigits(f.moneda)),
@@ -357,6 +362,7 @@ export default function MetasPage() {
                 return;
               }
               addAporte(aporteGoal.id, monto);
+              track("goal_contribution_completed", { moneda: aporteGoal.moneda, mode });
               setAporteGoal(null);
               notify(`Aporte de ${formatMoney(monto, aporteGoal.moneda)} registrado.`);
             }}
