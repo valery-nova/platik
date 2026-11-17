@@ -209,9 +209,9 @@ const FUNNEL_DEFS = [
   },
   {
     key: "demo_to_dashboard",
-    title: "De demostración a panel",
-    description: "Recorrido desde iniciar la demo hasta ver el panel.",
-    steps: ["demo_started", "onboarding_started", "onboarding_completed", "dashboard_viewed"],
+    title: "De demostración a onboarding completado",
+    description: "Recorrido desde iniciar la demo hasta completar el onboarding.",
+    steps: ["demo_started", "onboarding_started", "onboarding_completed"],
   },
   {
     key: "wallet_connect",
@@ -593,9 +593,17 @@ async function loadFunnels(config: PostHogConfig | null, period: AdminPeriod, fi
     const rows = extractRows(
       await postHogRequest(
         config,
-        `SELECT timestamp, distinct_id, event FROM events WHERE ${timeSql("timestamp", period.since, period.until)} AND event IN (${list}) ${eventFiltersSql(filters)} ORDER BY timestamp ASC LIMIT 10000`,
+        `SELECT timestamp, distinct_id, event FROM events WHERE ${timeSql("timestamp", period.since, period.until)} AND event IN (${list}) ${eventFiltersSql(filters)} ORDER BY timestamp ASC LIMIT 10001`,
       ),
     );
+    if (rows.length > 10000) {
+      return FUNNEL_DEFS.map((funnel) => ({
+        ...funnel,
+        steps: funnel.steps.map((step) => ({ key: step, label: EVENT_LABELS[step] ?? step, started: 0, completed: 0, conversion: null, dropoff: null })),
+        status: "error",
+        detail: "El período tiene demasiados eventos para calcular embudos con precisión",
+      }));
+    }
     const byUser = new Map<string, FunnelEventRow[]>();
     for (const row of rows) {
       const distinctId = String(row[1] ?? "");
@@ -733,7 +741,7 @@ async function loadRecordings(config: PostHogConfig | null, period: AdminPeriod)
   if (!config) return { recordings: null, status: "pending_configuration", detail: "Configura POSTHOG_PERSONAL_API_KEY, POSTHOG_PROJECT_ID y POSTHOG_API_HOST" };
   try {
     const url = new URL(`${config.apiHost}/api/projects/${config.projectId}/session_recordings/`);
-    url.searchParams.set("limit", "50");
+    url.searchParams.set("limit", "100");
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${config.apiKey}` },
       cache: "no-store",
@@ -742,12 +750,15 @@ async function loadRecordings(config: PostHogConfig | null, period: AdminPeriod)
     const data = (await response.json()) as { results?: unknown };
     const rows = Array.isArray(data.results) ? data.results : [];
     const sinceMs = period.since.getTime();
+    const untilMs = period.until.getTime();
     const recordings = rows
       .map((item): Recording | null => {
         const row = item as Record<string, unknown>;
         const id = typeof row.id === "string" ? row.id : null;
         const startedAt = typeof row.start_time === "string" ? row.start_time : null;
-        if (!id || !startedAt || Date.parse(startedAt) < sinceMs) return null;
+        if (!id || !startedAt) return null;
+        const startedAtMs = Date.parse(startedAt);
+        if (Number.isNaN(startedAtMs) || startedAtMs < sinceMs || startedAtMs > untilMs) return null;
         const startUrl = typeof row.start_url === "string" ? row.start_url : "";
         let startPath = "/";
         try {
@@ -781,10 +792,9 @@ export async function getFounderMetrics(input: {
   refresh?: boolean;
 }): Promise<FounderMetrics> {
   const { period, filters } = input;
+  const periodCacheKey = period.key === "custom" ? `custom:${period.since.toISOString()}:${period.until.toISOString()}` : period.key;
   const cacheKey = JSON.stringify({
-    key: period.key,
-    from: period.since.toISOString(),
-    to: period.until.toISOString(),
+    period: periodCacheKey,
     page: filters.page ?? null,
     device: filters.device ?? null,
   });
@@ -841,6 +851,9 @@ export async function getFounderMetrics(input: {
 
   const generatedAt = new Date().toISOString();
   const posthogEventsStatus: MetricStatus = events.every((event) => event.status === "ok") ? "ok" : events.some((event) => event.status === "error") ? "error" : "pending_configuration";
+  const posthogLastSync = posthog && posthogEventsStatus === "ok" ? generatedAt : null;
+  const vercelAnalyticsStatus: MetricStatus = !vercel ? "pending_configuration" : visitors.status === "error" || pageviews.status === "error" ? "error" : "ok";
+  const vercelLastSync = vercelAnalyticsStatus === "ok" ? generatedAt : null;
   const value: FounderMetrics = {
     generatedAt,
     period: {
@@ -891,16 +904,16 @@ export async function getFounderMetrics(input: {
         detail: posthog ? "Eventos, sesiones, embudos y Session Replay" : missingPostHog,
         metrics: ["Usuarios activos", "Sesiones", "Eventos de producto", "Embudos", "Session Replay"],
         url: posthog?.apiHost ?? null,
-        lastSync: generatedAt,
+        lastSync: posthogLastSync,
       },
       {
         id: "vercel-analytics",
         name: "Vercel Analytics",
-        status: vercel ? "ok" : "pending_configuration",
-        detail: vercel ? "Visitantes y páginas vistas de producción" : missingVercel,
+        status: vercelAnalyticsStatus,
+        detail: vercelAnalyticsStatus === "error" ? (visitors.detail ?? pageviews.detail ?? "Error consultando Vercel Web Analytics") : vercel ? "Visitantes y páginas vistas de producción" : missingVercel,
         metrics: ["Visitantes", "Pageviews", "Rutas", "Dispositivos", "Países"],
         url: "https://vercel.com/dashboard",
-        lastSync: generatedAt,
+        lastSync: vercelLastSync,
       },
       {
         id: "speed-insights",
