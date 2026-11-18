@@ -266,7 +266,6 @@ function PollarWalletInner() {
               {syncBusy ? "Buscando…" : "Buscar depósitos"}
             </Button>
             <Button variant="outline" onClick={() => void refreshBal()}>Actualizar</Button>
-            <Button variant="outline" onClick={() => p.logout()}>Cerrar sesión</Button>
           </div>
           {p.recoveryLocked && <p className="text-xs text-coral-600">Configura la recuperación antes de recibir o enviar.</p>}
           {syncMsg && <p className="text-sm text-tinta-suave">{syncMsg}</p>}
@@ -278,12 +277,30 @@ function PollarWalletInner() {
         </div>
       )}
       {p.isAuthenticated && p.hasWallet && !address && hayWalletNoClasica && (
-        <p className="rounded-xl bg-lavanda-50 px-3 py-2 text-sm text-petroleo">
-          Tu wallet Pollar no es una cuenta clásica Stellar G...; la recepción USDC clásica no está disponible para este tipo de wallet.
-        </p>
+        <div className="space-y-3 rounded-xl bg-lavanda-50 p-3 text-sm text-petroleo">
+          <p>
+            Tu wallet Pollar usa una smart wallet: PLATIK no puede mostrar QR/dirección
+            clásica ni verificar depósitos entrantes por Horizon, pero sí permite enviar USDC.
+          </p>
+          {p.recoveryLocked && (
+            <Button variant="outline" onClick={p.openRecoveryModal}>Configurar recuperación</Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => { setSendError(null); setSendOutcome(null); setSendOpen(true); }}
+            disabled={p.recoveryLocked}
+          >
+            Enviar USDC
+          </Button>
+        </div>
       )}
       {p.isAuthenticated && p.hasWallet && !address && !hayWalletNoClasica && (
         <p className="text-sm text-tinta-suave">Tu wallet está provisionándose. Espera unos segundos y pulsa Actualizar.</p>
+      )}
+      {p.isAuthenticated && (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => p.logout()}>Cerrar sesión</Button>
+        </div>
       )}
 
       <UsdcReceiveModal
@@ -314,7 +331,7 @@ function PollarWalletInner() {
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setSendOpen(false)}>Cerrar</Button>
-            <Button onClick={() => void submitSend()} disabled={sendBusy || !address || p.recoveryLocked}>
+            <Button onClick={() => void submitSend()} disabled={sendBusy || !p.hasWallet || p.recoveryLocked}>
               {sendBusy ? "Enviando…" : "Enviar"}
             </Button>
           </div>

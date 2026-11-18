@@ -46,9 +46,9 @@ type Action =
   | { type: "balanceAdjustment/add"; mode: PlatikMode; adjustment: BalanceAdjustment }
   | { type: "balanceAdjustment/delete"; id: string }
   | { type: "balanceAdjustment/update"; mode: PlatikMode; adjustment: BalanceAdjustment }
-  | { type: "aporteStellar/upsert"; aporte: AporteStellar }
+  | { type: "aporteStellar/upsert"; aporte: AporteStellar; mode?: PlatikMode }
   | { type: "aporteStellar/delete"; id: string }
-  | { type: "depositoUsdc/upsert"; deposito: DepositoUsdc }
+  | { type: "depositoUsdc/upsert"; deposito: DepositoUsdc; mode?: PlatikMode }
   | { type: "depositoUsdc/delete"; id: string }
   | { type: "reset"; mode: PlatikMode };
 
@@ -126,6 +126,7 @@ function reducer(state: State, action: Action): State {
         ),
       });
     case "aporteStellar/upsert":
+      if (action.mode && action.mode !== state.mode) return state;
       return withData(state, {
         aportesStellar: state.data.aportesStellar.some((a) => a.id === action.aporte.id)
           ? state.data.aportesStellar.map((a) =>
@@ -138,6 +139,7 @@ function reducer(state: State, action: Action): State {
         aportesStellar: state.data.aportesStellar.filter((a) => a.id !== action.id),
       });
     case "depositoUsdc/upsert":
+      if (action.mode && action.mode !== state.mode) return state;
       return withData(state, {
         depositosUsdc: state.data.depositosUsdc.some((d) => d.id === action.deposito.id)
           ? state.data.depositosUsdc.map((d) =>
@@ -179,9 +181,9 @@ interface Store {
   addBalanceAdjustment: (adjustment: Omit<BalanceAdjustment, "id">) => void;
   deleteBalanceAdjustment: (id: string) => void;
   updateBalanceAdjustment: (adjustment: BalanceAdjustment) => void;
-  upsertAporteStellar: (aporte: AporteStellar) => void;
+  upsertAporteStellar: (aporte: AporteStellar, mode?: PlatikMode) => void;
   deleteAporteStellar: (id: string) => void;
-  upsertDepositoUsdc: (deposito: DepositoUsdc) => void;
+  upsertDepositoUsdc: (deposito: DepositoUsdc, mode?: PlatikMode) => void;
   deleteDepositoUsdc: (id: string) => void;
 }
 
@@ -289,11 +291,11 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
       updateBalanceAdjustment: (adjustment) =>
         dispatch({ type: "balanceAdjustment/update", mode: state.mode, adjustment }),
       deleteBalanceAdjustment: (id) => dispatch({ type: "balanceAdjustment/delete", id }),
-      upsertAporteStellar: (aporte) =>
-        dispatch({ type: "aporteStellar/upsert", aporte }),
+      upsertAporteStellar: (aporte, mode) =>
+        dispatch({ type: "aporteStellar/upsert", aporte, mode: mode ?? state.mode }),
       deleteAporteStellar: (id) => dispatch({ type: "aporteStellar/delete", id }),
-      upsertDepositoUsdc: (deposito) =>
-        dispatch({ type: "depositoUsdc/upsert", deposito }),
+      upsertDepositoUsdc: (deposito, mode) =>
+        dispatch({ type: "depositoUsdc/upsert", deposito, mode: mode ?? state.mode }),
       deleteDepositoUsdc: (id) => dispatch({ type: "depositoUsdc/delete", id }),
     }),
     [state, hydrated],

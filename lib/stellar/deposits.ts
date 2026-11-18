@@ -38,6 +38,7 @@ interface HorizonPaymentRecord {
 function isIncomingUsdc(record: HorizonPaymentRecord, address: string): boolean {
   if (record.type && record.type !== "payment") return false;
   if (record.to !== address) return false;
+  if (record.from === address) return false;
   if (record.asset_code !== USDC_TESTNET.code) return false;
   if (record.asset_issuer !== USDC_TESTNET.issuer) return false;
   const amount = Number(record.amount ?? 0);
@@ -98,7 +99,7 @@ function baseDeposito(
 
 /**
  * Sincroniza depósitos entrantes de una wallet con Horizon.
- * Deduplica por txHash, conserva la meta asignada y solo marca
+ * Deduplica por operación Horizon, conserva la meta asignada y solo marca
  * "confirmado" cuando Horizon devuelve la transacción como exitosa.
  */
 export async function syncDepositsUsdc(

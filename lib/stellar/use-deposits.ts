@@ -2,7 +2,7 @@
 
 /**
  * Sincroniza depósitos USDC entrantes de una wallet con Horizon y los
- * guarda en el store de PLATIK. Deduplica por txHash vía syncDepositsUsdc.
+ * guarda en el store de PLATIK. Deduplica por operación Horizon.
  */
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { usePlatik } from "@/lib/store";
@@ -10,7 +10,7 @@ import type { DepositoUsdc } from "./types";
 import { syncDepositsUsdc } from "./deposits";
 
 export function useUsdcDeposits(address: string | null | undefined) {
-  const { data, upsertDepositoUsdc } = usePlatik();
+  const { data, upsertDepositoUsdc, mode } = usePlatik();
   const depositsRef = useRef(data.depositosUsdc);
   const upsertRef = useRef(upsertDepositoUsdc);
 
@@ -26,11 +26,12 @@ export function useUsdcDeposits(address: string | null | undefined) {
     async (defaultGoalId?: string): Promise<DepositoUsdc[]> => {
       if (!address) return [];
       const current = depositsRef.current.filter((d) => d.walletAddress === address);
+      const activeMode = mode;
       const synced = await syncDepositsUsdc(address, current, defaultGoalId);
-      for (const d of synced) upsertRef.current(d);
+      for (const d of synced) upsertRef.current(d, activeMode);
       return synced;
     },
-    [address],
+    [address, mode],
   );
 
   useEffect(() => {
