@@ -440,6 +440,7 @@ export default async function AdminPage(props: { searchParams: Promise<Record<st
             <BreakdownList title="Dispositivos" items={metrics.behavior.devices} hint="Distribución por tipo de dispositivo." />
             <BreakdownList title="Países" items={metrics.behavior.countries} hint="Distribución por país según geo IP disponible." />
             <BreakdownList title="Navegadores" items={metrics.behavior.browsers} hint="Navegadores más utilizados." />
+            <BreakdownList title="Redes sociales" items={metrics.behavior.socialNetworks} hint="Personas que hicieron clic en cada red desde la landing. PLATIK es anónimo; se muestran clics y personas únicas, no identidades." />
           </div>
         </Section>
 
