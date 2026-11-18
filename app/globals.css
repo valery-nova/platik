@@ -82,3 +82,50 @@ body {
 .anim-float {
   animation: platik-float 5s ease-in-out infinite;
 }
+
+/* Pollar: marca PLATIK y ajustes responsive del modal de login. */
+.pollar-overlay {
+  background-color: rgba(11, 61, 59, 0.48);
+}
+
+.pollar-modal.pollar-modal-card {
+  max-width: 430px;
+  --pollar-modal-padding: 1.75rem;
+}
+
+.pollar-modal .pollar-logo {
+  height: 3rem;
+  width: 3rem;
+  filter: none;
+}
+
+.pollar-modal .pollar-subtitle,
+.pollar-modal .pollar-footer {
+  display: none;
+}
+
+.pollar-modal .pollar-title {
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 480px) {
+  .pollar-overlay {
+    padding: 0.5rem;
+  }
+
+  .pollar-modal.pollar-modal-card {
+    max-width: 100%;
+    max-height: calc(100dvh - 1rem);
+    --pollar-modal-padding: 1.25rem;
+    border-radius: 20px 20px 14px 14px;
+  }
+
+  .pollar-modal .pollar-logo {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+
+  .pollar-modal .pollar-title {
+    font-size: 1.2rem;
+  }
+}

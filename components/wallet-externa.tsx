@@ -127,7 +127,7 @@ export function WalletExternaCard() {
   };
 
   return (
-    <Card className="flex flex-col gap-4">
+    <Card className="flex flex-col gap-4 p-4 sm:p-5">
       <CardHeader
         title="Ya tengo una wallet Stellar"
         subtitle="Conecta Freighter/Varial. PLATIK solo ve tu dirección pública; la firma ocurre en tu wallet."

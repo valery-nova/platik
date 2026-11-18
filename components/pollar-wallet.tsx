@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PollarProvider, usePollar } from "@pollar/react";
+import { PollarProvider, usePollar, type PollarConfig } from "@pollar/react";
 import { usePlatik } from "@/lib/store";
 import { isStellarAddress } from "@/lib/stellar/account";
 import { USDC_TESTNET, USDC_TESTNET_LABEL, explorerAccountUrl, explorerTxUrl } from "@/lib/stellar/config";
@@ -13,10 +13,38 @@ import { UsdcDepositList, UsdcReceiveModal, formatUsdc, shortAddr } from "./usdc
 
 const POLLAR_API_KEY = process.env.NEXT_PUBLIC_POLLAR_PUBLISHABLE_KEY;
 
+// Replica la app Pollar de Testnet y aplica la marca PLATIK al modal del SDK.
+const POLLAR_APP_CONFIG: PollarConfig = {
+  application: {
+    name: "PLATIK",
+    network: "testnet",
+    chains: ["STELLAR"],
+    walletProvisioning: "AT_LOGIN",
+    walletCustodyMode: "INTERNAL",
+    signConfirmation: { mode: "PROMPT", windowSeconds: 300, maxUsd: "50" },
+  },
+  styles: {
+    theme: "light",
+    accentColor: "#0b3d3b",
+    logoUrl: "/brand/app/app-icon.svg",
+    modalTitle: "PLATIK",
+    backgroundColor: "#ffffff",
+    textColor: "#12312f",
+    buttonColor: "#f8faf7",
+    modalBorderRadius: 24,
+    buttonBorderRadius: 14,
+    modalZIndex: 80,
+    emailEnabled: true,
+    embeddedWallets: true,
+    smartWallet: false,
+    providers: { google: true, discord: false, x: false, github: false, apple: false },
+  },
+};
+
 export function PollarWalletCard() {
   if (!POLLAR_API_KEY) {
     return (
-      <Card className="flex flex-col gap-3">
+      <Card className="flex flex-col gap-3 p-4 sm:p-5">
         <CardHeader
           title="Crear mi billetera con PLATIK"
           subtitle="Crea y protege tu wallet para ahorrar USDC de prueba."
@@ -28,7 +56,7 @@ export function PollarWalletCard() {
     );
   }
   return (
-    <PollarProvider client={{ apiKey: POLLAR_API_KEY, stellarNetwork: "testnet" }}>
+    <PollarProvider client={{ apiKey: POLLAR_API_KEY, stellarNetwork: "testnet" }} appConfig={POLLAR_APP_CONFIG}>
       <PollarWalletInner />
     </PollarProvider>
   );
@@ -184,7 +212,7 @@ function PollarWalletInner() {
   };
 
   return (
-    <Card className="flex flex-col gap-4">
+    <Card className="flex flex-col gap-4 p-4 sm:p-5">
       <CardHeader
         title="Crear mi billetera con PLATIK"
         subtitle="Crea y protege tu wallet para recibir y enviar USDC de prueba."
@@ -200,6 +228,7 @@ function PollarWalletInner() {
       {!p.isAuthenticated && (
         <div className="space-y-3">
           <p className="text-sm text-tinta-suave">Entra para crear o recuperar tu wallet.</p>
+          <p className="text-xs text-tinta-suave">En el siguiente paso elige Google o escribe tu correo; Pollar crea y protege la wallet.</p>
           <Button onClick={p.openLoginModal} disabled={p.configStatus !== "ready"}>
             Crear mi billetera
           </Button>

@@ -44,7 +44,7 @@ function RecomendacionAhorro() {
   const shownMonto = editing || accepted ? monto || String(rec.monto) : String(rec.monto);
 
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className="flex flex-col gap-3 p-4 sm:p-5">
       <CardHeader
         title="Recomendación de ahorro"
         subtitle="Basada solo en tus ingresos y egresos registrados. No ejecuta transferencias ni convierte moneda."
@@ -91,7 +91,7 @@ function RecomendacionAhorro() {
 
 function ConversionFutura() {
   return (
-    <Card className="flex flex-col gap-2">
+    <Card className="flex flex-col gap-2 p-4 sm:p-5">
       <CardHeader
         title="Conversión BOB → USDC (próximamente)"
         subtitle="Preparado para una futura integración con proveedores fiat-to-crypto legales en Bolivia."
