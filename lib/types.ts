@@ -1,7 +1,7 @@
-import type { AporteStellar } from "./stellar/types";
+import type { AporteStellar, DepositoUsdc } from "./stellar/types";
 import type { RateType } from "./currency/rates";
 
-export type { AporteStellar } from "./stellar/types";
+export type { AporteStellar, DepositoUsdc } from "./stellar/types";
 
 export type TxType = "ingreso" | "gasto" | "costo";
 
@@ -123,4 +123,5 @@ export interface PlatikData {
   /** Ajustes trazables del saldo disponible. */
   balanceAdjustments: BalanceAdjustment[];
   aportesStellar: AporteStellar[];
+  depositosUsdc: DepositoUsdc[];
 }

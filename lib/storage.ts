@@ -3,7 +3,7 @@
  * que demostración y prueba personalizada nunca se mezclen.
  */
 import type { PlatikData } from "./types";
-import type { AporteStellar } from "./stellar/types";
+import type { AporteStellar, DepositoUsdc } from "./stellar/types";
 import { buildDemoData, buildEmptyData } from "./demo-data";
 import { migrateData } from "./migration";
 
@@ -77,6 +77,8 @@ const ESTADOS_APORTE = new Set([
   "cancelada",
 ]);
 
+const ESTADOS_DEPOSITO = new Set(["pendiente", "confirmado", "fallido"]);
+
 function sanitizeAportes(d: PlatikData): PlatikData {
   const aportes = Array.isArray(d.aportesStellar)
     ? d.aportesStellar.filter(
@@ -96,6 +98,26 @@ function sanitizeAportes(d: PlatikData): PlatikData {
   return { ...d, aportesStellar: aportes };
 }
 
+function sanitizeDepositos(d: PlatikData): PlatikData {
+  const depositos = Array.isArray(d.depositosUsdc)
+    ? d.depositosUsdc.filter(
+        (x): x is DepositoUsdc =>
+          !!x &&
+          typeof x === "object" &&
+          typeof x.id === "string" &&
+          typeof x.walletAddress === "string" &&
+          typeof x.destinationAddress === "string" &&
+          typeof x.txHash === "string" &&
+          typeof x.createdAt === "string" &&
+          typeof x.importe === "number" &&
+          Number.isFinite(x.importe) &&
+          typeof x.estado === "string" &&
+          ESTADOS_DEPOSITO.has(x.estado as DepositoUsdc["estado"]),
+      )
+    : [];
+  return { ...d, depositosUsdc: depositos };
+}
+
 function parseStored(raw: string | null): StoredPlatik | null {
   if (!raw) return null;
   try {
@@ -105,7 +127,7 @@ function parseStored(raw: string | null): StoredPlatik | null {
     if (!candidate) return null;
     return {
       version: SCHEMA_VERSION,
-      data: migrateData(sanitizeAportes(candidate)),
+      data: migrateData(sanitizeDepositos(sanitizeAportes(candidate))),
       customized: wrapped && typeof wrapped === "object" && "customized" in wrapped
         ? wrapped.customized === true
         : true,

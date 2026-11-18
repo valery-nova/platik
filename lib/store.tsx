@@ -7,7 +7,7 @@ import {
   useMemo,
   useReducer,
 } from "react";
-import type { AporteStellar } from "./stellar/types";
+import type { AporteStellar, DepositoUsdc } from "./stellar/types";
 import type {
   BalanceAdjustment,
   DistributionCategory,
@@ -48,6 +48,8 @@ type Action =
   | { type: "balanceAdjustment/update"; mode: PlatikMode; adjustment: BalanceAdjustment }
   | { type: "aporteStellar/upsert"; aporte: AporteStellar }
   | { type: "aporteStellar/delete"; id: string }
+  | { type: "depositoUsdc/upsert"; deposito: DepositoUsdc }
+  | { type: "depositoUsdc/delete"; id: string }
   | { type: "reset"; mode: PlatikMode };
 
 interface State {
@@ -135,6 +137,18 @@ function reducer(state: State, action: Action): State {
       return withData(state, {
         aportesStellar: state.data.aportesStellar.filter((a) => a.id !== action.id),
       });
+    case "depositoUsdc/upsert":
+      return withData(state, {
+        depositosUsdc: state.data.depositosUsdc.some((d) => d.id === action.deposito.id)
+          ? state.data.depositosUsdc.map((d) =>
+              d.id === action.deposito.id ? action.deposito : d,
+            )
+          : [action.deposito, ...state.data.depositosUsdc],
+      });
+    case "depositoUsdc/delete":
+      return withData(state, {
+        depositosUsdc: state.data.depositosUsdc.filter((d) => d.id !== action.id),
+      });
     case "reset":
       return {
         mode: action.mode,
@@ -167,6 +181,8 @@ interface Store {
   updateBalanceAdjustment: (adjustment: BalanceAdjustment) => void;
   upsertAporteStellar: (aporte: AporteStellar) => void;
   deleteAporteStellar: (id: string) => void;
+  upsertDepositoUsdc: (deposito: DepositoUsdc) => void;
+  deleteDepositoUsdc: (id: string) => void;
 }
 
 const PlatikContext = createContext<Store | null>(null);
@@ -276,6 +292,9 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
       upsertAporteStellar: (aporte) =>
         dispatch({ type: "aporteStellar/upsert", aporte }),
       deleteAporteStellar: (id) => dispatch({ type: "aporteStellar/delete", id }),
+      upsertDepositoUsdc: (deposito) =>
+        dispatch({ type: "depositoUsdc/upsert", deposito }),
+      deleteDepositoUsdc: (id) => dispatch({ type: "depositoUsdc/delete", id }),
     }),
     [state, hydrated],
   );

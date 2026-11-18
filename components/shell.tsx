@@ -11,6 +11,7 @@ import {
   PieChart,
   Target,
   User,
+  Wallet,
   X,
 } from "lucide-react";
 import { DemoBadge } from "./ui";
@@ -22,6 +23,7 @@ const NAV = [
   { href: "/panel/transacciones", label: "Transacciones", icon: ArrowLeftRight },
   { href: "/panel/analisis", label: "Análisis", icon: PieChart },
   { href: "/panel/metas", label: "Metas", icon: Target },
+  { href: "/panel/billetera", label: "Billetera", icon: Wallet },
   { href: "/panel/perfil", label: "Perfil", icon: User },
 ];
 
