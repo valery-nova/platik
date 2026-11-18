@@ -666,7 +666,12 @@ const SOCIAL_NETWORK_LABELS: Record<string, string> = {
 
 function labelSocialNetworks(items: BreakdownItem[] | null): BreakdownItem[] | null {
   if (!items) return null;
-  return items.map((item) => ({ ...item, name: SOCIAL_NETWORK_LABELS[item.name] ?? item.name }));
+  return items.map((item) => {
+    const label = Object.prototype.hasOwnProperty.call(SOCIAL_NETWORK_LABELS, item.name)
+      ? SOCIAL_NETWORK_LABELS[item.name]
+      : item.name;
+    return { ...item, name: label };
+  });
 }
 
 async function loadBreakdown(
