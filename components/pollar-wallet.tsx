@@ -37,8 +37,20 @@ export function PollarWalletCard() {
 function PollarWalletInner() {
   const p = usePollar();
   const { data, upsertDepositoUsdc } = usePlatik();
-  const wallet = p.wallet ?? p.wallets[0] ?? null;
+  const stellarCandidates = p.wallets.filter(
+    (w) => w.chain === undefined || w.chain === "STELLAR",
+  );
+  const wallet =
+    stellarCandidates.find((w) => isStellarAddress(w.address)) ??
+    (p.wallet && isStellarAddress(p.wallet.address) ? p.wallet : null);
   const address = wallet?.address ?? null;
+  const hayWalletNoClasica =
+    !!p.hasWallet &&
+    !address &&
+    (stellarCandidates.some((w) => !isStellarAddress(w.address)) ||
+      (!!p.wallet &&
+        (p.wallet.chain === undefined || p.wallet.chain === "STELLAR") &&
+        !isStellarAddress(p.wallet.address)));
   const { balances, loading: balLoading, error: balError, refresh: refreshBal } = useAddressBalances(address);
   const { deposits, sync } = useUsdcDeposits(address);
 
@@ -55,6 +67,8 @@ function PollarWalletInner() {
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendOutcome, setSendOutcome] = useState<string | null>(null);
+  const [trustBusy, setTrustBusy] = useState(false);
+  const [trustMsg, setTrustMsg] = useState<string | null>(null);
 
   const usdcBalance = useMemo(() => {
     const raw = balances?.usdc;
@@ -62,6 +76,8 @@ function PollarWalletInner() {
     const n = Number(raw);
     return Number.isFinite(n) ? n : null;
   }, [balances?.usdc]);
+
+  const sinTrustlineUsdc = !!balances && !balances.tieneTrustlineUsdc;
 
   const assignGoal = (d: DepositoUsdc, goalId: string | undefined) => {
     const next: DepositoUsdc = { ...d };
@@ -100,6 +116,33 @@ function PollarWalletInner() {
   const closeReceive = () => {
     setReceiveOpen(false);
     void sync(receiveGoal || undefined).catch(() => undefined);
+  };
+
+  const activarTrustline = async () => {
+    if (!address) return;
+    setTrustBusy(true);
+    setTrustMsg(null);
+    try {
+      const outcome = await p.setTrustline({
+        code: USDC_TESTNET.code,
+        issuer: USDC_TESTNET.issuer,
+      });
+      if (outcome.status === "success" || outcome.status === "pending") {
+        setTrustMsg("Trustline USDC activada o en proceso. Ya podrás recibir USDC de prueba.");
+      } else if (outcome.status === "cosign_pending") {
+        setTrustMsg("La activación requiere aprobación en tu dispositivo de recuperación/co-firma.");
+      } else {
+        setTrustMsg(outcome.details ?? outcome.code ?? "Pollar no pudo activar la trustline.");
+      }
+      await refreshBal();
+      void p.refreshAssets();
+      void p.refreshWalletBalance();
+      void sync();
+    } catch (err) {
+      setTrustMsg(err instanceof Error ? err.message : "No se pudo activar la trustline USDC.");
+    } finally {
+      setTrustBusy(false);
+    }
   };
 
   const validAmount = /^\d+(\.\d{1,7})?$/.test(sendAmount.trim()) && Number(sendAmount) > 0;
@@ -203,11 +246,20 @@ function PollarWalletInner() {
             </div>
           </div>
           {balError && <p className="text-xs text-coral-600">{balError}</p>}
+          {sinTrustlineUsdc && (
+            <div className="rounded-xl bg-lavanda-50 p-3 text-sm text-petroleo">
+              <p>Tu wallet aún no confía en el USDC de prueba; actívalo una vez para poder recibirlo.</p>
+              <Button variant="outline" className="mt-2" onClick={() => void activarTrustline()} disabled={trustBusy || p.recoveryLocked}>
+                {trustBusy ? "Activando…" : "Activar USDC en mi wallet"}
+              </Button>
+              {trustMsg && <p className="mt-2 text-xs text-tinta-suave">{trustMsg}</p>}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => { setReceiveGoal(""); setReceiveAmount(""); setReceiveOpen(true); }} disabled={p.recoveryLocked}>
+            <Button variant="outline" onClick={() => { setReceiveGoal(""); setReceiveAmount(""); setReceiveOpen(true); }} disabled={p.recoveryLocked || sinTrustlineUsdc}>
               Recibir
             </Button>
-            <Button variant="outline" onClick={() => { setSendError(null); setSendOutcome(null); setSendOpen(true); }} disabled={p.recoveryLocked}>
+            <Button variant="outline" onClick={() => { setSendError(null); setSendOutcome(null); setSendOpen(true); }} disabled={p.recoveryLocked || sinTrustlineUsdc}>
               Enviar
             </Button>
             <Button variant="outline" onClick={() => void runSync()} disabled={syncBusy || p.recoveryLocked}>
@@ -225,7 +277,12 @@ function PollarWalletInner() {
           </div>
         </div>
       )}
-      {p.isAuthenticated && p.hasWallet && !address && (
+      {p.isAuthenticated && p.hasWallet && !address && hayWalletNoClasica && (
+        <p className="rounded-xl bg-lavanda-50 px-3 py-2 text-sm text-petroleo">
+          Tu wallet Pollar no es una cuenta clásica Stellar G...; la recepción USDC clásica no está disponible para este tipo de wallet.
+        </p>
+      )}
+      {p.isAuthenticated && p.hasWallet && !address && !hayWalletNoClasica && (
         <p className="text-sm text-tinta-suave">Tu wallet está provisionándose. Espera unos segundos y pulsa Actualizar.</p>
       )}
 

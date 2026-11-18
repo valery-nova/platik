@@ -33,6 +33,8 @@ export function WalletExternaCard() {
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendHash, setSendHash] = useState<string | null>(null);
+  const [trustBusy, setTrustBusy] = useState(false);
+  const [trustMsg, setTrustMsg] = useState<string | null>(null);
 
   const usdcBalance = useMemo(() => {
     const raw = w.balances?.usdc;
@@ -40,6 +42,8 @@ export function WalletExternaCard() {
     const n = Number(raw);
     return Number.isFinite(n) ? n : null;
   }, [w.balances?.usdc]);
+
+  const sinTrustlineUsdc = !!w.balances && !w.balances.tieneTrustlineUsdc;
 
   const assignGoal = (d: DepositoUsdc, goalId: string | undefined) => {
     const next: DepositoUsdc = { ...d };
@@ -60,6 +64,22 @@ export function WalletExternaCard() {
       setSyncMsg(toStellarError(err, "horizon_error").message);
     } finally {
       setSyncBusy(false);
+    }
+  };
+
+  const activarTrustline = async () => {
+    if (!address) return;
+    setTrustBusy(true);
+    setTrustMsg(null);
+    try {
+      await ensureUsdcTrustline(address);
+      setTrustMsg("Trustline USDC activada. Ya puedes recibir USDC de prueba.");
+      await w.refreshBalances();
+      void sync();
+    } catch (err) {
+      setTrustMsg(toStellarError(err).message);
+    } finally {
+      setTrustBusy(false);
     }
   };
 
@@ -150,8 +170,21 @@ export function WalletExternaCard() {
               </p>
             </div>
           </div>
+          {sinTrustlineUsdc && (
+            <div className="rounded-xl bg-lavanda-50 p-3 text-sm text-petroleo">
+              <p>Tu wallet aún no confía en el USDC de prueba; actívalo una vez para poder recibirlo.</p>
+              <Button variant="outline" className="mt-2" onClick={() => void activarTrustline()} disabled={trustBusy}>
+                {trustBusy ? "Activando…" : "Activar USDC en mi wallet"}
+              </Button>
+              {trustMsg && <p className="mt-2 text-xs text-tinta-suave">{trustMsg}</p>}
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => { setReceiveGoal(""); setReceiveAmount(""); setReceiveOpen(true); }}>
+            <Button
+              variant="outline"
+              disabled={sinTrustlineUsdc}
+              onClick={() => { setReceiveGoal(""); setReceiveAmount(""); setReceiveOpen(true); }}
+            >
               Recibir
             </Button>
             <Button variant="outline" onClick={() => { setSendError(null); setSendHash(null); setSendOpen(true); }}>

@@ -84,10 +84,17 @@ const TIPO_LABEL: Record<string, string> = {
 export default function DashboardPage() {
   const { data, hydrated } = usePlatik();
   if (!hydrated) return <PanelSkeleton />;
-  const { transactions, goals, profile, distribution, aportesStellar } = data;
+  const { transactions, goals, profile, distribution, aportesStellar, depositosUsdc } = data;
   const moneda = profile.moneda;
-  const aportesConfirmados = aportesStellar.filter((a) => a.estado === "confirmada");
-  const usdcConfirmado = aportesConfirmados.reduce((s, a) => s + a.importe, 0);
+  const depositosConfirmados = depositosUsdc.filter((d) => d.estado === "confirmado");
+  const txHashesDepositos = new Set(depositosConfirmados.map((d) => d.txHash));
+  const aportesConfirmados = aportesStellar.filter(
+    (a) => a.estado === "confirmada" && (!a.txHash || !txHashesDepositos.has(a.txHash)),
+  );
+  const usdcConfirmado =
+    depositosConfirmados.reduce((s, d) => s + d.importe, 0) +
+    aportesConfirmados.reduce((s, a) => s + a.importe, 0);
+  const confirmadosOnChain = depositosConfirmados.length + aportesConfirmados.length;
 
   const ultimos30 = txInRange(transactions, haceDiasISO(29));
   const ingresos = totalByType(ultimos30, "ingreso", moneda);
@@ -428,7 +435,10 @@ export default function DashboardPage() {
               <p className="mt-0.5 text-sm font-semibold text-petroleo">
                 {usdcConfirmado.toLocaleString("es-BO", { maximumFractionDigits: 7 })} USDC
                 <span className="ml-1 font-normal text-tinta-suave">
-                  · {aportesConfirmados.length} confirmado(s)
+                  · {confirmadosOnChain} confirmado(s)
+                  <span className="ml-1 font-normal text-tinta-suave">
+                    {" "}(depósitos recibidos + aportes legacy)
+                  </span>
                 </span>
               </p>
             </div>

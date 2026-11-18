@@ -9,6 +9,8 @@ import type { DepositoUsdc } from "./types";
 import { getTransactionStatus } from "./verify";
 
 export interface DepositCandidate {
+  /** Clave durable por operación Horizon (permite varias ops en una misma tx). */
+  key: string;
   txHash: string;
   from: string;
   to: string;
@@ -19,6 +21,7 @@ export interface DepositCandidate {
 }
 
 interface HorizonPaymentRecord {
+  id?: string;
   type?: string;
   transaction_hash?: string;
   from?: string;
@@ -54,15 +57,19 @@ export async function fetchIncomingUsdcPayments(
 
   return (res.records ?? [])
     .filter((r) => isIncomingUsdc(r, address))
-    .map((r) => ({
-      txHash: r.transaction_hash ?? "",
-      from: r.from ?? "",
+    .map((r, index) => {
+      const txHash = r.transaction_hash ?? "";
+      return {
+        key: r.id ?? `${txHash}-${index}`,
+        txHash,
+        from: r.from ?? "",
       to: r.to ?? address,
       amount: Number(r.amount ?? 0),
       createdAt: r.created_at ?? new Date().toISOString(),
       ledger: typeof r.ledger_attr === "number" ? r.ledger_attr : null,
       successful: typeof r.transaction_successful === "boolean" ? r.transaction_successful : null,
-    }))
+      };
+    })
     .filter((c) => c.txHash.length > 0);
 }
 
@@ -73,7 +80,7 @@ function baseDeposito(
   defaultGoalId: string | undefined,
 ): DepositoUsdc {
   return {
-    id: existing?.id ?? `usdc-${candidate.txHash}`,
+    id: existing?.id ?? `usdc-${candidate.key}`,
     goalId: existing?.goalId ?? defaultGoalId,
     walletAddress,
     originAddress: candidate.from || existing?.originAddress,
@@ -100,11 +107,13 @@ export async function syncDepositsUsdc(
   defaultGoalId?: string,
 ): Promise<DepositoUsdc[]> {
   const candidates = await fetchIncomingUsdcPayments(address);
-  const byHash = new Map(existing.map((d) => [d.txHash, d]));
+  const byId = new Map(existing.map((d) => [d.id, d]));
   const out = [...existing];
 
   for (const candidate of candidates) {
-    const prev = byHash.get(candidate.txHash);
+    const depositId = `usdc-${candidate.key}`;
+    const legacyId = `usdc-${candidate.txHash}`;
+    const prev = byId.get(depositId) ?? byId.get(legacyId);
     if (prev?.estado === "confirmado") continue;
 
     const base = baseDeposito(candidate, address, prev, defaultGoalId);
@@ -132,11 +141,11 @@ export async function syncDepositsUsdc(
       next = { ...base, estado: "pendiente", ledger: status.ledger ?? base.ledger };
     }
 
-    const idx = out.findIndex((d) => d.txHash === candidate.txHash);
+    const idx = out.findIndex((d) => d.id === base.id);
     if (idx >= 0) out[idx] = next;
     else {
       out.push(next);
-      byHash.set(candidate.txHash, next);
+      byId.set(next.id, next);
     }
   }
 

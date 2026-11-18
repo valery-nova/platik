@@ -9,6 +9,7 @@ import { roundToCurrency } from "@/lib/currency/decimal";
 import { Card, CardHeader, PageHeader, Button, Input, Field } from "./ui";
 import { WalletExternaCard } from "./wallet-externa";
 import { PollarWalletCard } from "./pollar-wallet";
+import { AportesStellarHistorial } from "./aportes-stellar-historial";
 
 function RecomendacionAhorro() {
   const { data } = usePlatik();
@@ -126,6 +127,7 @@ export function BilleteraDigital() {
           <PollarWalletCard />
         </Suspense>
       </div>
+      <AportesStellarHistorial />
       <Suspense fallback={null}>
         <RecomendacionAhorro />
       </Suspense>
