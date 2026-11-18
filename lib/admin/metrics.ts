@@ -175,6 +175,7 @@ const PRODUCT_EVENTS = [
   "wallet_connected",
   "usdc_deposit_started",
   "usdc_deposit_completed",
+  "social_link_click",
   "feature_error",
 ] as const;
 
@@ -197,6 +198,7 @@ const EVENT_LABELS: Record<string, string> = {
   wallet_connected: "Billetera conectada",
   usdc_deposit_started: "Depósito USDC iniciado",
   usdc_deposit_completed: "Depósito USDC completado",
+  social_link_click: "Click en red social",
   feature_error: "Error de funcionalidad",
 };
 

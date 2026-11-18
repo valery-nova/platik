@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { YearNote } from "@/components/year-note";
 import { ProbarPlatik } from "@/components/probar-platik";
+import { SocialLinks } from "@/components/social-links";
 import {
   ArrowRight,
   BarChart3,
@@ -306,6 +307,7 @@ export default function LandingPage() {
             height={81}
             className="h-14 w-auto"
           />
+          <SocialLinks />
           <YearNote />
         </div>
       </footer>
