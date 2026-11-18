@@ -19,10 +19,10 @@ export function PollarWalletCard() {
       <Card className="flex flex-col gap-3">
         <CardHeader
           title="Crear mi billetera con PLATIK"
-          subtitle="Wallet integrada gestionada por Pollar para usuarios sin experiencia Web3."
+          subtitle="Crea y protege tu wallet para ahorrar USDC de prueba."
         />
         <p className="rounded-xl bg-petroleo-50 px-3 py-3 text-sm text-tinta-suave">
-          Pendiente de configuración: falta <code>NEXT_PUBLIC_POLLAR_PUBLISHABLE_KEY</code> en el entorno de PLATIK.
+          Pendiente de configuración: falta la clave pública de Pollar en el entorno de PLATIK.
         </p>
       </Card>
     );
@@ -187,19 +187,19 @@ function PollarWalletInner() {
     <Card className="flex flex-col gap-4">
       <CardHeader
         title="Crear mi billetera con PLATIK"
-        subtitle="Opción sin Web3: Pollar crea y protege la wallet; tú guardas la recuperación."
+        subtitle="Crea y protege tu wallet para recibir y enviar USDC de prueba."
       />
       <p className="rounded-xl bg-menta-100 px-3 py-2 text-xs text-menta-700">
-        Control y recuperación: en modo Test la wallet la custodia Pollar; en Live usa Turnkey con co-firma/self-custody y recuperación por passkey, email o segundo dispositivo. PLATIK nunca ve claves privadas.
+        Tu wallet es tuya: PLATIK nunca ve tu clave privada. Pollar la protege y te permite recuperarla si cambias de dispositivo.
       </p>
       {p.configStatus === "error" && (
         <p className="rounded-xl bg-coral-100 px-3 py-2 text-sm text-coral-600">
-          No se pudo cargar la configuración de Pollar. <button className="underline" onClick={p.retryConfig}>Reintentar</button>
+          No pudimos conectar con el servicio de billeteras. <button className="underline" onClick={p.retryConfig}>Reintentar</button>
         </p>
       )}
       {!p.isAuthenticated && (
         <div className="space-y-3">
-          <p className="text-sm text-tinta-suave">Entra con tu método preferido para crear o recuperar tu billetera PLATIK.</p>
+          <p className="text-sm text-tinta-suave">Entra para crear o recuperar tu wallet.</p>
           <Button onClick={p.openLoginModal} disabled={p.configStatus !== "ready"}>
             Crear mi billetera
           </Button>
@@ -207,7 +207,7 @@ function PollarWalletInner() {
       )}
       {p.isAuthenticated && !p.hasWallet && (
         <div className="space-y-3">
-          <p className="text-sm text-tinta-suave">Sesión activa. Crea tu wallet Stellar Testnet para recibir y enviar USDC de prueba.</p>
+          <p className="text-sm text-tinta-suave">Ya iniciaste sesión. Crea tu wallet para recibir y enviar USDC de prueba.</p>
           <Button onClick={() => void createWallet()} disabled={authBusy || !p.verified}>
             {authBusy ? "Creando…" : "Crear billetera"}
           </Button>
@@ -222,15 +222,16 @@ function PollarWalletInner() {
               <p className="font-medium text-petroleo">{shortAddr(address, 8)}</p>
               <Badge tone="menta">{wallet.custody}</Badge>
             </div>
-            {wallet.provisioning && <p className="mt-1 text-xs text-tinta-suave">Provisioning: {wallet.provisioning}</p>}
+            {wallet.provisioning === "CREATING" && <p className="mt-1 text-xs text-tinta-suave">Preparando tu wallet…</p>}
+            {wallet.provisioning === "FAILED" && <p className="mt-1 text-xs text-coral-600">No se pudo preparar tu wallet. Cierra sesión y vuelve a intentarlo.</p>}
             <a className="text-xs text-petroleo underline" href={explorerAccountUrl(address)} target="_blank" rel="noreferrer">
               Ver en Stellar Explorer
             </a>
           </div>
           {p.recoveryLocked && (
             <div className="rounded-xl bg-coral-100 p-3 text-sm text-coral-600">
-              <p>Tu wallet aún no tiene un método de recuperación completo.</p>
-              <Button variant="outline" className="mt-2" onClick={p.openRecoveryModal}>Configurar recuperación</Button>
+              <p>Primero protege tu wallet: agrega una forma de recuperarla si cambias de dispositivo.</p>
+              <Button variant="outline" className="mt-2" onClick={p.openRecoveryModal}>Proteger mi wallet</Button>
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
@@ -267,9 +268,9 @@ function PollarWalletInner() {
             </Button>
             <Button variant="outline" onClick={() => void refreshBal()}>Actualizar</Button>
           </div>
-          {p.recoveryLocked && <p className="text-xs text-coral-600">Configura la recuperación antes de recibir o enviar.</p>}
+          {p.recoveryLocked && <p className="text-xs text-coral-600">Primero protege tu wallet para poder recibir o enviar.</p>}
           {syncMsg && <p className="text-sm text-tinta-suave">{syncMsg}</p>}
-          <p className="text-xs text-tinta-suave">{USDC_TESTNET_LABEL} · Red {p.network}</p>
+          <p className="text-xs text-tinta-suave">{USDC_TESTNET_LABEL}</p>
           <div className="space-y-2">
             <p className="text-sm font-medium text-petroleo">Depósitos recibidos</p>
             <UsdcDepositList depositos={deposits} goals={data.goals} onAssign={assignGoal} />
@@ -283,7 +284,7 @@ function PollarWalletInner() {
             clásica ni verificar depósitos entrantes por Horizon, pero sí permite enviar USDC.
           </p>
           {p.recoveryLocked && (
-            <Button variant="outline" onClick={p.openRecoveryModal}>Configurar recuperación</Button>
+            <Button variant="outline" onClick={p.openRecoveryModal}>Proteger mi wallet</Button>
           )}
           <Button
             variant="outline"
