@@ -88,7 +88,7 @@ export default function LandingPage() {
           <div className="anim-fade-up">
             <span className="mb-5 inline-flex items-center gap-2 rounded-full bg-menta-100 px-3.5 py-1.5 text-xs font-semibold text-menta-700">
               <ShieldCheck size={14} />
-              Para independientes, freelancers y negocios
+              Finanzas claras para todos
             </span>
             <h1 className="text-4xl font-bold leading-tight text-petroleo sm:text-5xl">
               Entiende tu dinero.
@@ -98,8 +98,9 @@ export default function LandingPage() {
               <span className="text-menta-600">Ahorra para lo que importa.</span>
             </h1>
             <p className="mt-5 max-w-lg text-lg text-tinta-suave">
-              PLATIK es tu copiloto financiero: convierte tus ingresos y gastos en
-              explicaciones claras, metas de ahorro y decisiones fáciles — sin
+              PLATIK es tu copiloto financiero: transforma tus ingresos y gastos en
+              información clara, te ayuda a alcanzar tus metas de ahorro y te
+              permite tomar mejores decisiones con tu dinero, sin necesidad de
               saber contabilidad.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
