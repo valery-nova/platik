@@ -22,6 +22,7 @@ import {
   Select,
 } from "@/components/ui";
 import { usePlatik } from "@/lib/store";
+import { usePreferences } from "@/lib/preferences";
 import { track } from "@/lib/analytics";
 import { CATEGORIAS } from "@/lib/categories";
 import { hoyISO } from "@/lib/finance";
@@ -290,6 +291,7 @@ export default function TransaccionesPage() {
     updateTransaction,
     deleteTransaction,
   } = usePlatik();
+  const { tr } = usePreferences();
   const moneda = data.profile.moneda;
 
   const [filtroTipo, setFiltroTipo] = useState<"todos" | TxType>("todos");
@@ -312,13 +314,14 @@ export default function TransaccionesPage() {
       .filter((t) => !filtroMes || t.fecha.slice(5, 7) === filtroMes)
       .filter((t) => !filtroAnio || t.fecha.slice(0, 4) === filtroAnio)
       .filter((t) => (!filtroDesde || t.fecha >= filtroDesde) && (!filtroHasta || t.fecha <= filtroHasta))
-      .filter(
-        (t) =>
-          !q ||
-          t.descripcion.toLowerCase().includes(q) ||
-          t.categoria.toLowerCase().includes(q),
-      );
-  }, [data.transactions, filtroTipo, filtroCategoria, filtroMes, filtroAnio, filtroDesde, filtroHasta, busqueda]);
+      .filter((t) => {
+        if (!q) return true;
+        const texto = [t.descripcion, t.categoria, tr(t.descripcion), tr(t.categoria)]
+          .join(" ")
+          .toLowerCase();
+        return texto.includes(q);
+      });
+  }, [data.transactions, filtroTipo, filtroCategoria, filtroMes, filtroAnio, filtroDesde, filtroHasta, busqueda, tr]);
 
   const categoriasVisibles = useMemo(
     () => [...new Set(data.transactions.map((t) => t.categoria))].sort(),
