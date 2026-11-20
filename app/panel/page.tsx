@@ -37,6 +37,7 @@ import {
   ultimasTransacciones,
 } from "@/lib/finance";
 import { formatFecha, formatMoney, formatPct } from "@/lib/format";
+import { uiLocaleTag } from "@/lib/locale";
 import { hoyISO } from "@/lib/finance";
 import { diagnostico } from "@/lib/insights";
 import { saldoDisponible } from "@/lib/balance";
@@ -433,7 +434,7 @@ export default function DashboardPage() {
                 Ahorro on-chain (USDC de prueba · Stellar Testnet)
               </p>
               <p className="mt-0.5 text-sm font-semibold text-petroleo">
-                {usdcConfirmado.toLocaleString("es-BO", { maximumFractionDigits: 7 })} USDC
+                {usdcConfirmado.toLocaleString(uiLocaleTag(), { maximumFractionDigits: 7 })} USDC
                 <span className="ml-1 font-normal text-tinta-suave">
                   · {confirmadosOnChain} confirmado(s)
                   <span className="ml-1 font-normal text-tinta-suave">
