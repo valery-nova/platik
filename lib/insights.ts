@@ -12,6 +12,8 @@ import { currencyDigits } from "./currency/catalog";
 import { roundToCurrency } from "./currency/decimal";
 import { montoEnBase, totalesPorCategoria, type CategoriaTotal } from "./finance";
 import { formatMoney, formatPct } from "./format";
+import { translate } from "./i18n";
+import { uiLang } from "./locale";
 
 /** Movimientos con importe usable mínimos por período para comparar. */
 export const MIN_MOVIMIENTOS_PERIODO = 3;
@@ -132,12 +134,15 @@ export interface DineroDisponible {
  */
 export function dineroDisponible(r: ResumenPeriodo): DineroDisponible {
   const moneda = r.moneda;
+  const en = uiLang() === "en";
   if (r.pendientesEgresos > 0) {
     return {
       estado: "incompleto",
       monto: null,
       moneda,
-      motivo: `${r.pendientesEgresos} egreso(s) en otra moneda no tienen cotización válida. Sin ellos el excedente podría estar sobrestimado, así que no calculamos el dinero disponible.`,
+      motivo: en
+        ? `${r.pendientesEgresos} outflow(s) in another currency do not have a valid quote. Without them the surplus could be overestimated, so we do not calculate available money.`
+        : `${r.pendientesEgresos} egreso(s) en otra moneda no tienen cotización válida. Sin ellos el excedente podría estar sobrestimado, así que no calculamos el dinero disponible.`,
     };
   }
   if (r.nIngresos === 0) {
@@ -145,8 +150,11 @@ export function dineroDisponible(r: ResumenPeriodo): DineroDisponible {
       estado: "sin_datos",
       monto: null,
       moneda,
-      motivo:
-        r.pendientesIngresos > 0
+      motivo: en
+        ? r.pendientesIngresos > 0
+          ? "Your period income still has no valid quote in your main currency."
+          : "There is no income recorded in the period."
+        : r.pendientesIngresos > 0
           ? "Tus ingresos del período aún no tienen cotización válida en tu moneda principal."
           : "No hay ingresos registrados en el período.",
     };
@@ -156,7 +164,9 @@ export function dineroDisponible(r: ResumenPeriodo): DineroDisponible {
       estado: r.pendientesIngresos > 0 ? "parcial" : "determinado",
       monto: 0,
       moneda,
-      motivo: "Los egresos igualan o superan a los ingresos: no hay excedente para distribuir.",
+      motivo: en
+        ? "Outflows equal or exceed income: there is no surplus to distribute."
+        : "Los egresos igualan o superan a los ingresos: no hay excedente para distribuir.",
     };
   }
   if (r.pendientesIngresos > 0) {
@@ -164,14 +174,18 @@ export function dineroDisponible(r: ResumenPeriodo): DineroDisponible {
       estado: "parcial",
       monto: r.ganancia,
       moneda,
-      motivo: `Estimación conservadora: ${r.pendientesIngresos} ingreso(s) sin cotización válida no se cuentan.`,
+      motivo: en
+        ? `Conservative estimate: ${r.pendientesIngresos} income item(s) without a valid quote are not counted.`
+        : `Estimación conservadora: ${r.pendientesIngresos} ingreso(s) sin cotización válida no se cuentan.`,
     };
   }
   return {
     estado: "determinado",
     monto: r.ganancia,
     moneda,
-    motivo: "Excedente del período tras cubrir costos y gastos registrados.",
+    motivo: en
+      ? "Period surplus after covering recorded costs and expenses."
+      : "Excedente del período tras cubrir costos y gastos registrados.",
   };
 }
 
@@ -217,14 +231,19 @@ export function interpretar({
   const money = (v: number) => formatMoney(v, m);
   const out: Hallazgo[] = [];
   const pendientes = actual.pendientesIngresos + actual.pendientesEgresos;
+  const lang = uiLang();
+  const en = lang === "en";
+  const tt = (s: string) => translate(lang, s);
 
   if (actual.nIngresos + actual.nEgresos === 0) {
     out.push({
       id: "sin_datos",
       tono: "info",
       texto:
-        "No hay movimientos con importe en tu moneda principal en este período. Registra transacciones para ver qué pasa con tu dinero.",
-      calculo: "0 movimientos usables",
+        en
+          ? "There are no movements with an amount in your main currency in this period. Record transactions to see what happens to your money."
+          : "No hay movimientos con importe en tu moneda principal en este período. Registra transacciones para ver qué pasa con tu dinero.",
+      calculo: en ? "0 usable movements" : "0 movimientos usables",
     });
     if (pendientes > 0) out.push(hallazgoPendientes(pendientes));
     return out;
@@ -237,21 +256,27 @@ export function interpretar({
       out.push({
         id: "resultado_positivo",
         tono: "positivo",
-        texto: `El período deja una ganancia estimada de ${money(actual.ganancia)}: de cada ${m} 100 que entraron quedaron aproximadamente ${m} ${Math.round(margen)}.`,
-        calculo: `${money(actual.ingresos)} − ${money(actual.egresos)} = ${money(actual.ganancia)}; margen ${formatPct(margen)}`,
+        texto: en
+          ? `The period leaves an estimated profit of ${money(actual.ganancia)}: of every ${m} 100 that came in, approximately ${m} ${Math.round(margen)} remained.`
+          : `El período deja una ganancia estimada de ${money(actual.ganancia)}: de cada ${m} 100 que entraron quedaron aproximadamente ${m} ${Math.round(margen)}.`,
+        calculo: `${money(actual.ingresos)} − ${money(actual.egresos)} = ${money(actual.ganancia)}; ${en ? "margin" : "margen"} ${formatPct(margen)}`,
       });
     } else if (actual.ganancia < 0) {
       out.push({
         id: "resultado_negativo",
         tono: "alerta",
-        texto: `Los egresos superaron a los ingresos por ${money(Math.abs(actual.ganancia))}. Revisa las categorías de mayor gasto.`,
+        texto: en
+          ? `Outflows exceeded income by ${money(Math.abs(actual.ganancia))}. Review the categories with the highest spending.`
+          : `Los egresos superaron a los ingresos por ${money(Math.abs(actual.ganancia))}. Revisa las categorías de mayor gasto.`,
         calculo: `${money(actual.ingresos)} − ${money(actual.egresos)} = ${money(actual.ganancia)}`,
       });
     } else {
       out.push({
         id: "resultado_cero",
         tono: "neutral",
-        texto: "Los ingresos cubrieron exactamente los egresos: el período no deja excedente.",
+        texto: en
+          ? "Income covered outflows exactly: the period leaves no surplus."
+          : "Los ingresos cubrieron exactamente los egresos: el período no deja excedente.",
         calculo: `${money(actual.ingresos)} − ${money(actual.egresos)} = ${money(0)}`,
       });
     }
@@ -259,8 +284,12 @@ export function interpretar({
     out.push({
       id: "sin_ingresos",
       tono: "alerta",
-      texto: `El período solo registra egresos (${money(actual.egresos)}) y ningún ingreso usable.`,
-      calculo: `${actual.nEgresos} egreso(s), 0 ingresos`,
+      texto: en
+        ? `The period only records outflows (${money(actual.egresos)}) and no usable income.`
+        : `El período solo registra egresos (${money(actual.egresos)}) y ningún ingreso usable.`,
+      calculo: en
+        ? `${actual.nEgresos} outflow(s), 0 income`
+        : `${actual.nEgresos} egreso(s), 0 ingresos`,
     });
   }
 
@@ -269,16 +298,23 @@ export function interpretar({
     out.push({
       id: "datos_insuficientes",
       tono: "info",
-      texto: `Hay pocos movimientos (${actual.nIngresos + actual.nEgresos}) para establecer una tendencia confiable. Con al menos ${MIN_MOVIMIENTOS_PERIODO}, incluido un ingreso, podremos comparar períodos.`,
-      calculo: `${actual.nIngresos} ingreso(s), ${actual.nEgresos} egreso(s)`,
+      texto: en
+        ? `There are too few movements (${actual.nIngresos + actual.nEgresos}) to establish a reliable trend. With at least ${MIN_MOVIMIENTOS_PERIODO}, including income, we can compare periods.`
+        : `Hay pocos movimientos (${actual.nIngresos + actual.nEgresos}) para establecer una tendencia confiable. Con al menos ${MIN_MOVIMIENTOS_PERIODO}, incluido un ingreso, podremos comparar períodos.`,
+      calculo: en
+        ? `${actual.nIngresos} income, ${actual.nEgresos} outflow(s)`
+        : `${actual.nIngresos} ingreso(s), ${actual.nEgresos} egreso(s)`,
     });
   } else if (!suficiente(previo)) {
     out.push({
       id: "sin_comparacion",
       tono: "info",
-      texto:
-        "El período anterior no tiene datos suficientes para comparar, así que aún no hablamos de tendencias.",
-      calculo: `Período anterior: ${previo.nIngresos} ingreso(s), ${previo.nEgresos} egreso(s)`,
+      texto: en
+        ? "The previous period does not have enough data to compare, so we are not talking about trends yet."
+        : "El período anterior no tiene datos suficientes para comparar, así que aún no hablamos de tendencias.",
+      calculo: en
+        ? `Previous period: ${previo.nIngresos} income, ${previo.nEgresos} outflow(s)`
+        : `Período anterior: ${previo.nIngresos} ingreso(s), ${previo.nEgresos} egreso(s)`,
     });
   } else {
     const vIng = variacionPct(actual.ingresos, previo.ingresos);
@@ -288,13 +324,17 @@ export function interpretar({
           ? {
               id: "ingresos_estables",
               tono: "neutral",
-              texto: "Tus ingresos se mantuvieron estables respecto al período anterior.",
+              texto: en
+                ? "Your income stayed stable compared with the previous period."
+                : "Tus ingresos se mantuvieron estables respecto al período anterior.",
               calculo: `${money(previo.ingresos)} → ${money(actual.ingresos)} (${formatPct(vIng)})`,
             }
           : {
               id: vIng > 0 ? "ingresos_suben" : "ingresos_bajan",
               tono: vIng > 0 ? "positivo" : "alerta",
-              texto: `Tus ingresos ${vIng > 0 ? "aumentaron" : "disminuyeron"} ${formatPct(Math.abs(vIng))} respecto al período anterior.`,
+              texto: en
+                ? `Your income ${vIng > 0 ? "increased" : "decreased"} by ${formatPct(Math.abs(vIng))} compared with the previous period.`
+                : `Tus ingresos ${vIng > 0 ? "aumentaron" : "disminuyeron"} ${formatPct(Math.abs(vIng))} respecto al período anterior.`,
               calculo: `${money(previo.ingresos)} → ${money(actual.ingresos)}`,
             },
       );
@@ -304,16 +344,19 @@ export function interpretar({
       out.push({
         id: "tendencias_parciales",
         tono: "info",
-        texto:
-          "Hay movimientos sin cotización válida excluidos de los totales. Las variaciones y tendencias de abajo pueden no reflejar el negocio completo; actualiza las cotizaciones.",
-        calculo: "Totales parciales",
+        texto: en
+          ? "Some movements without a valid quote are excluded from the totals. The variations and trends below may not reflect the full business; update the quotes."
+          : "Hay movimientos sin cotización válida excluidos de los totales. Las variaciones y tendencias de abajo pueden no reflejar el negocio completo; actualiza las cotizaciones.",
+        calculo: en ? "Partial totals" : "Totales parciales",
       });
     }
     if (vEgr !== null && Math.abs(vEgr) >= UMBRAL_VARIACION_PCT) {
       out.push({
         id: vEgr > 0 ? "egresos_suben" : "egresos_bajan",
         tono: vEgr > 0 ? "alerta" : "positivo",
-        texto: `Los gastos y costos ${vEgr > 0 ? "aumentaron" : "disminuyeron"} ${formatPct(Math.abs(vEgr))} respecto al período anterior.`,
+        texto: en
+          ? `Expenses and costs ${vEgr > 0 ? "increased" : "decreased"} by ${formatPct(Math.abs(vEgr))} compared with the previous period.`
+          : `Los gastos y costos ${vEgr > 0 ? "aumentaron" : "disminuyeron"} ${formatPct(Math.abs(vEgr))} respecto al período anterior.`,
         calculo: `${money(previo.egresos)} → ${money(actual.egresos)}`,
       });
     }
@@ -322,8 +365,11 @@ export function interpretar({
       out.push({
         id: vGan > 0 ? "ganancia_mayor" : "ganancia_menor",
         tono: vGan > 0 ? "positivo" : "alerta",
-        texto:
-          vGan > 0
+        texto: en
+          ? vGan > 0
+            ? "The business is generating a higher profit than in the previous period."
+            : "The business is generating a lower profit than in the previous period."
+          : vGan > 0
             ? "El negocio está generando una ganancia mayor que en el período anterior."
             : "El negocio está generando una ganancia menor que en el período anterior.",
         calculo: `${money(previo.ganancia)} → ${money(actual.ganancia)} (${formatPct(vGan)})`,
@@ -335,7 +381,9 @@ export function interpretar({
         out.push({
           id: dif > 0 ? "margen_mejora" : "margen_baja",
           tono: dif > 0 ? "positivo" : "alerta",
-          texto: `Tu margen de ganancia ${dif > 0 ? "mejoró" : "disminuyó"} ${Math.abs(dif).toFixed(1)} puntos.`,
+          texto: en
+            ? `Your profit margin ${dif > 0 ? "improved" : "decreased"} by ${Math.abs(dif).toFixed(1)} points.`
+            : `Tu margen de ganancia ${dif > 0 ? "mejoró" : "disminuyó"} ${Math.abs(dif).toFixed(1)} puntos.`,
           calculo: `${formatPct(previo.margen)} → ${formatPct(actual.margen)}`,
         });
       }
@@ -348,8 +396,10 @@ export function interpretar({
     out.push({
       id: "concentracion_egresos",
       tono: "alerta",
-      texto: `“${top.categoria}” concentra ${formatPct(top.porcentaje, 0)} de tus egresos. Revisar esa categoría tiene el mayor impacto.`,
-      calculo: `${money(top.total)} de ${money(actual.egresos)}`,
+      texto: en
+        ? `“${tt(top.categoria)}” accounts for ${formatPct(top.porcentaje, 0)} of your outflows. Reviewing that category has the biggest impact.`
+        : `“${tt(top.categoria)}” concentra ${formatPct(top.porcentaje, 0)} de tus egresos. Revisar esa categoría tiene el mayor impacto.`,
+      calculo: `${money(top.total)} ${en ? "of" : "de"} ${money(actual.egresos)}`,
     });
   }
   const topIng = categoriasIngreso[0];
@@ -357,8 +407,10 @@ export function interpretar({
     out.push({
       id: "fuente_principal",
       tono: "neutral",
-      texto: `Tu principal fuente de ingreso fue “${topIng.categoria}” (${formatPct(topIng.porcentaje, 0)} de lo que entra).`,
-      calculo: `${money(topIng.total)} de ${money(actual.ingresos)}`,
+      texto: en
+        ? `Your main income source was “${tt(topIng.categoria)}” (${formatPct(topIng.porcentaje, 0)} of what comes in).`
+        : `Tu principal fuente de ingreso fue “${tt(topIng.categoria)}” (${formatPct(topIng.porcentaje, 0)} de lo que entra).`,
+      calculo: `${money(topIng.total)} ${en ? "of" : "de"} ${money(actual.ingresos)}`,
     });
   }
 
@@ -367,11 +419,14 @@ export function interpretar({
 }
 
 function hallazgoPendientes(n: number): Hallazgo {
+  const en = uiLang() === "en";
   return {
     id: "pendientes_conversion",
     tono: "info",
-    texto: `${n} movimiento(s) en otra moneda no tienen cotización válida y no se incluyen en este análisis.`,
-    calculo: `${n} excluido(s) de los totales`,
+    texto: en
+      ? `${n} movement(s) in another currency do not have a valid quote and are not included in this analysis.`
+      : `${n} movimiento(s) en otra moneda no tienen cotización válida y no se incluyen en este análisis.`,
+    calculo: en ? `${n} excluded from the totals` : `${n} excluido(s) de los totales`,
   };
 }
 
@@ -400,8 +455,10 @@ export function diagnostico(
     hallazgos.push({
       id: "pendientes_conversion",
       tono: "info",
-      texto: `El período anterior tiene ${rPrevio.pendientesIngresos + rPrevio.pendientesEgresos} movimiento(s) sin cotización válida excluidos: la comparación con el período actual es parcial.`,
-      calculo: "Período anterior parcial",
+      texto: uiLang() === "en"
+        ? `The previous period has ${rPrevio.pendientesIngresos + rPrevio.pendientesEgresos} movement(s) without a valid quote excluded: the comparison with the current period is partial.`
+        : `El período anterior tiene ${rPrevio.pendientesIngresos + rPrevio.pendientesEgresos} movimiento(s) sin cotización válida excluidos: la comparación con el período actual es parcial.`,
+      calculo: uiLang() === "en" ? "Partial previous period" : "Período anterior parcial",
     });
   }
   return { actual: rActual, previo: rPrevio, hallazgos };
