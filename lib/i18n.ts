@@ -710,5 +710,7 @@ const EN: Record<string, string> = {
 
 export function translate(lang: Lang, text: string): string {
   if (lang !== "en") return text;
-  return EN[text] ?? text;
+  if (!Object.prototype.hasOwnProperty.call(EN, text)) return text;
+  const hit = EN[text];
+  return typeof hit === "string" ? hit : text;
 }

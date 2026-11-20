@@ -122,8 +122,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   });
 
+  // Sincroniza el locale de Intl antes de renderizar el contenido del panel.
+  setUiLocale(lang);
+
   useEffect(() => {
-    setUiLocale(lang);
     document.documentElement.lang = lang;
     try {
       window.localStorage.setItem(LANG_KEY, lang);
