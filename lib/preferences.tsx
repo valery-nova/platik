@@ -2,14 +2,17 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { translate } from "./i18n";
+import type { Lang } from "./i18n";
 
-export type Lang = "es" | "en";
+export type { Lang };
 export type Theme = "light" | "dark";
 
 const THEME_KEY = "platik:theme:v1";
@@ -90,6 +93,7 @@ interface Preferences {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   t: Dict;
+  tr: (text: string) => string;
 }
 
 const PreferencesContext = createContext<Preferences | null>(null);
@@ -116,8 +120,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // El contenido principal sigue en español; solo la navegación se traduce.
-    // No marcamos todo el documento como "en" para no romper lectores de pantalla.
+    document.documentElement.lang = lang;
     try {
       window.localStorage.setItem(LANG_KEY, lang);
     } catch {
@@ -135,9 +138,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
+  const tr = useCallback((text: string) => translate(lang, text), [lang]);
+
   const value = useMemo<Preferences>(
-    () => ({ lang, setLang, theme, setTheme, t: DICT[lang] }),
-    [lang, theme],
+    () => ({ lang, setLang, theme, setTheme, t: DICT[lang], tr }),
+    [lang, theme, tr],
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

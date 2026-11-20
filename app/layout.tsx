@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
 import { PreferencesProvider } from "@/lib/preferences";
+import { I18nTranslator } from "@/components/i18n-translator";
 import "@pollar/react/styles.css";
 import "./globals.css";
 
@@ -33,6 +34,7 @@ export default function RootLayout({
           }}
         />
         <PreferencesProvider>
+          <I18nTranslator />
           <AnalyticsTracker />
           {children}
           <Analytics />

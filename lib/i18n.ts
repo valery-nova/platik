@@ -1,0 +1,179 @@
+export type Lang = "es" | "en";
+
+const EN: Record<string, string> = {
+  // Navegación y shell
+  "Panel": "Dashboard",
+  "Transacciones": "Transactions",
+  "Análisis": "Insights",
+  "Metas": "Goals",
+  "Billetera": "Wallet",
+  "Perfil": "Profile",
+  "Tu copiloto financiero con IA": "Your AI financial copilot",
+  "Estás en la prueba beta de PLATIK (72 horas). Te informaremos el tiempo restante por separado; los datos se guardan solo en este navegador.":
+    "You are in the PLATIK beta (72 hours). We will inform you of the remaining time separately; data is stored only in this browser.",
+  "Abrir menú": "Open menu",
+  "Cerrar menú": "Close menu",
+  "Ir a la portada": "Go to home",
+  "Datos de demostración": "Demo data",
+  "Prueba beta · 72 h": "Beta · 72 h",
+  "Idioma": "Language",
+  "Tema": "Theme",
+  "Modo claro": "Light mode",
+  "Modo oscuro": "Dark mode",
+  // Comunes
+  "Cerrar": "Close",
+  "Guardar": "Save",
+  "Cancelar": "Cancel",
+  "Eliminar": "Delete",
+  "Editar": "Edit",
+  "Agregar": "Add",
+  "Crear": "Create",
+  "Ver detalle": "View details",
+  "Ver todas": "View all",
+  "Gestionar": "Manage",
+  "Ajustar porcentajes": "Adjust percentages",
+  "Probar PLATIK": "Try PLATIK",
+  "Enviar feedback": "Send feedback",
+  "Continuar": "Continue",
+  // Landing
+  "Finanzas claras para todos": "Clear finances for everyone",
+  "Entiende tu dinero.": "Understand your money.",
+  "Decide mejor.": "Decide better.",
+  "Ahorra para lo que importa.": "Save for what matters.",
+  "PLATIK es tu copiloto financiero: transforma tus ingresos y gastos en información clara, te ayuda a alcanzar tus metas de ahorro y te permite tomar mejores decisiones con tu dinero, sin necesidad de saber contabilidad.":
+    "PLATIK is your financial copilot: it turns your income and expenses into clear information, helps you reach your savings goals, and lets you make better decisions with your money without needing to know accounting.",
+  "Sin registro · datos de ejemplo": "No sign-up · sample data",
+  "Tu aliado en cada paso": "Your ally every step of the way",
+  "Así de simple funciona": "This simple is how it works",
+  "Tres pasos para pasar de números sueltos a decisiones claras.":
+    "Three steps to turn scattered numbers into clear decisions.",
+  "Paso": "Step",
+  "Analiza y piensa": "Analyze and think",
+  "Registra tus ingresos y gastos; PLATIK convierte tus datos en respuestas claras.":
+    "Record your income and expenses; PLATIK turns your data into clear answers.",
+  "Explica y guía": "Explains and guides",
+  "Tus números, en lenguaje sencillo: márgenes, categorías y evolución mes a mes.":
+    "Your numbers in plain language: margins, categories, and month-to-month progress.",
+  "Celebra tus metas": "Celebrate your goals",
+  "Define metas de ahorro —incluso en dólares digitales— y mira tu progreso.":
+    "Set savings goals —even in digital dollars— and watch your progress.",
+  "Finanzas claras. Decisiones inteligentes.": "Clear finances. Smart decisions.",
+  "Control real de tu dinero": "Real control of your money",
+  "Ingresos, costos y gastos en un solo lugar, sin hojas de cálculo.":
+    "Income, costs, and expenses in one place, no spreadsheets.",
+  "Números que se entienden": "Numbers you can understand",
+  "Ganancia neta, margen y distribución explicados sin contabilidad.":
+    "Net profit, margin, and allocation explained without accounting.",
+  "Metas de ahorro": "Savings goals",
+  "Reserva para tus metas con seguimiento visual de cada una.":
+    "Set money aside for your goals with visual tracking for each one.",
+  "Ahorro en dólares digitales": "Save in digital dollars",
+  "Conoce cómo USDC y la red Stellar pueden proteger tu esfuerzo.":
+    "Learn how USDC and the Stellar network can protect your effort.",
+  "Vista previa del panel": "Panel preview",
+  "Ganancia neta · mes": "Net profit · month",
+  "Margen": "Margin",
+  "Ingresos": "Income",
+  "Gastos": "Expenses",
+  "Demo en Stellar Testnet · USDC de prueba": "Stellar Testnet demo · test USDC",
+  "Conecta tu wallet Stellar y aporta USDC a tus metas de ahorro, firmando tú mismo cada transacción. En esta demo todo ocurre en":
+    "Connect your Stellar wallet and add USDC to your savings goals, signing each transaction yourself. In this demo everything happens on",
+  "con USDC de prueba de Circle, sin valor monetario real.":
+    " with Circle test USDC, with no real monetary value.",
+  "BOB para tu día a día, USD y USDC para tus metas.":
+    "BOB for daily life, USD and USDC for your goals.",
+  "Sin promesas de rentabilidad: tú decides cuánto reservar.":
+    "No profit promises: you decide how much to set aside.",
+  "Cada aporte se verifica en Horizon y enlaza al explorador.":
+    "Every contribution is verified on Horizon and linked to the explorer.",
+  "Empieza hoy: ahorra hoy, construye mañana.": "Start today: save today, build tomorrow.",
+  "El copiloto con IA llega en la siguiente fase.": "The AI copilot arrives in the next phase.",
+  "Finanzas claras, decisiones inteligentes.": "Clear finances, smart decisions.",
+  "Redes sociales de PLATIK": "PLATIK social media",
+  // Probar PLATIK
+  "Elige cómo quieres empezar. Cada modalidad tiene su propio espacio de datos.":
+    "Choose how you want to start. Each mode has its own data space.",
+  "Comenzar desde cero": "Start from scratch",
+  "Comienza tu experiencia financiera desde cero. Registra tu dinero disponible, configura tu capital y administra tus ingresos y gastos con tus propios datos.":
+    "Start your financial experience from scratch. Record your available money, set up your capital, and manage your income and expenses with your own data.",
+  "Explorar con datos de ejemplo": "Explore with sample data",
+  "Explora PLATIK con información financiera de ejemplo y descubre cómo funcionan sus herramientas, indicadores y funcionalidades.":
+    "Explore PLATIK with sample financial information and discover how its tools, indicators, and features work.",
+  "La prueba personalizada es de 72 horas; te informaremos el tiempo por separado. La demostración con datos de ejemplo siempre está disponible.":
+    "The personalized test lasts 72 hours; we will inform you of the time separately. The sample-data demo is always available.",
+
+  // Dashboard
+  "Hola,": "Hi,",
+  "Así va": "How",
+  "en los últimos 30 días.": "is doing over the last 30 days.",
+  "últimos 30 días": "last 30 days",
+  "Gastos y costos": "Expenses and costs",
+  "Ganancia neta estimada": "Estimated net profit",
+  "tu negocio va en positivo": "your business is trending positive",
+  "revisa tus egresos": "review your outflows",
+  "Rentabilidad": "Profitability",
+  "sin ingresos en el periodo": "no income in the period",
+  "Lo más importante": "What matters most",
+  "Lecturas calculadas con tus movimientos de los últimos 30 días": "Readings calculated from your last 30 days of transactions",
+  "Ver análisis": "View insights",
+  "Equivalencia informativa": "Informational equivalent",
+  "Ingresos vs. egresos": "Income vs. expenses",
+  "Últimos 6 meses": "Last 6 months",
+  "Distribución del dinero": "Money distribution",
+  "Tu reparto del dinero disponible (editable)": "Your allocation of available money (editable)",
+  "Dinero disponible:": "Available money:",
+  "(estimación conservadora)": "(conservative estimate)",
+  "Sin asignar": "Unallocated",
+  "Dinero disponible no determinable": "Available money cannot be determined",
+  "Sin dinero disponible en el periodo": "No available money in the period",
+  "Últimas transacciones": "Latest transactions",
+  "Aún no hay metas": "No goals yet",
+  "Crea tu primera meta de ahorro y celebra cada avance.": "Create your first savings goal and celebrate every step.",
+  "Ahorro on-chain (USDC de prueba · Stellar Testnet)": "On-chain savings (test USDC · Stellar Testnet)",
+  "confirmado(s)": "confirmed",
+  "(depósitos recibidos + aportes legacy)": "(received deposits + legacy contributions)",
+  "¿Qué estás viendo?": "What are you seeing?",
+  "costos": "costs",
+  "gastos": "expenses",
+  "ganancia neta": "net profit",
+  "Ingreso": "Income",
+  "Gasto": "Expense",
+  "Costo": "Cost",
+  // Perfil
+  "Datos del espacio": "Space data",
+  "Nombre, moneda y país del espacio activo": "Name, currency, and country of the active space",
+  "Nombre del negocio": "Business name",
+  "Cómo se identifica tu negocio en reportes": "How your business appears in reports",
+  "Ej. Artesanías La Chamba": "E.g. La Chamba Crafts",
+  "Tu nombre": "Your name",
+  "Ej. Valeria": "E.g. Alex",
+  "País": "Country",
+  "— Sin especificar —": "— Not specified —",
+  "Moneda principal": "Main currency",
+  "Moneda en la que registras y analizas": "Currency you record and analyze in",
+  "Moneda de visualización": "Display currency",
+  "Opcional: ver equivalencias en otra moneda": "Optional: view equivalents in another currency",
+  "— No mostrar —": "— Do not show —",
+  "Perfil actualizado": "Profile updated",
+  "Guardar perfil": "Save profile",
+  "Perfil y configuración": "Profile and settings",
+  "Cargando…": "Loading…",
+  "Estás explorando con datos de ejemplo": "You are exploring with sample data",
+  "Prueba beta · 72 horas": "Beta test · 72 hours",
+  "Estás en": "You are in",
+  "modo demostración": "demo mode",
+  "los datos de ejemplo nunca se modifican de forma permanente. Tus cambios viven en una copia independiente que puedes restablecer.":
+    "sample data is never permanently changed. Your edits live in an independent copy you can reset.",
+  "prueba beta": "beta test",
+  "Los datos se guardan solo en este navegador.": "Data is stored only in this browser.",
+  "Datos y modalidad": "Data and mode",
+  "Espacios independientes por modalidad": "Independent spaces per mode",
+  "Restablecer": "Reset",
+  "Moneda principal actual:": "Current main currency:",
+  "Los datos de cada modalidad no se mezclan.": "Data from each mode is kept separate.",
+};
+
+export function translate(lang: Lang, text: string): string {
+  if (lang !== "en") return text;
+  return EN[text] ?? text;
+}
