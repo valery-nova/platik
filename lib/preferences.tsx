@@ -11,6 +11,7 @@ import {
 } from "react";
 import { translate } from "./i18n";
 import type { Lang } from "./i18n";
+import { setUiLocale } from "./locale";
 
 export type { Lang };
 export type Theme = "light" | "dark";
@@ -105,7 +106,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     if (typeof window === "undefined") return "es";
     try {
       const saved = window.localStorage.getItem(LANG_KEY);
-      return saved === "en" ? "en" : "es";
+      const next = saved === "en" ? "en" : "es";
+      setUiLocale(next);
+      return next;
     } catch {
       return "es";
     }
@@ -120,6 +123,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    setUiLocale(lang);
     document.documentElement.lang = lang;
     try {
       window.localStorage.setItem(LANG_KEY, lang);

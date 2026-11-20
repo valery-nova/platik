@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { DepositoUsdc, Goal } from "@/lib/types";
+import { uiLocaleTag } from "@/lib/locale";
 import {
   explorerAccountUrl,
   explorerTxUrl,
@@ -138,7 +139,7 @@ export function UsdcDepositList({
                 {formatUsdc(d.importe)} USDC
               </p>
               <p className="text-xs text-tinta-suave">
-                {new Date(d.createdAt).toLocaleString("es-BO", {
+                {new Date(d.createdAt).toLocaleString(uiLocaleTag(), {
                   dateStyle: "medium",
                   timeStyle: "short",
                 })}

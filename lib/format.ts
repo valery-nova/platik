@@ -1,4 +1,5 @@
 import { isCurrencyCode } from "./currency/catalog";
+import { uiIntlLocale, uiLocaleTag } from "./locale";
 
 /**
  * Formato monetario internacional con Intl.NumberFormat.
@@ -55,7 +56,7 @@ export function formatMoney(
   const code = moneda.toUpperCase();
   if (!isCurrencyCode(code)) return `${monto.toFixed(2)} ${code}`;
 
-  const loc = locale ?? "es";
+  const loc = locale ?? uiIntlLocale();
   const aKey = `${loc}|${code}`;
   let ambiguous = ambiguityCache.get(aKey);
   if (ambiguous === undefined) {
@@ -70,10 +71,10 @@ export function formatMoneyCode(monto: number, moneda: string, locale?: string):
   if (!Number.isFinite(monto)) return "—";
   const code = moneda.toUpperCase();
   if (!isCurrencyCode(code)) return `${monto.toFixed(2)} ${code}`;
-  return getFormatter(locale ?? "es", code, true).format(monto);
+  return getFormatter(locale ?? uiIntlLocale(), code, true).format(monto);
 }
 
-export function formatFecha(fechaISO: string, locale = "es") {
+export function formatFecha(fechaISO: string, locale = uiLocaleTag()) {
   const [y, m, d] = fechaISO.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(locale, {
     day: "numeric",
@@ -86,7 +87,7 @@ export function formatPct(valor: number, decimales = 1) {
   return `${valor.toFixed(decimales)}%`;
 }
 
-export function nombreMes(mesKey: string, locale = "es") {
+export function nombreMes(mesKey: string, locale = uiLocaleTag()) {
   const [y, m] = mesKey.split("-").map(Number);
   return new Date(y, m - 1, 1)
     .toLocaleDateString(locale, { month: "short" })

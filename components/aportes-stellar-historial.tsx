@@ -6,6 +6,7 @@ import { explorerTxUrl } from "@/lib/stellar/config";
 import { ESTADO_APORTE_LABEL, transicionarAporteStellar } from "@/lib/stellar/aporte";
 import { getTransactionStatus } from "@/lib/stellar/verify";
 import type { AporteStellar, AporteStellarEstado } from "@/lib/stellar/types";
+import { uiLocaleTag } from "@/lib/locale";
 import { Badge, Button, Card, CardHeader } from "./ui";
 import { formatUsdc, shortAddr } from "./usdc-ui";
 
@@ -20,7 +21,7 @@ const TONE: Record<AporteStellarEstado, "neutral" | "menta" | "coral" | "lavanda
 
 function fechaHora(iso?: string): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("es-BO", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString(uiLocaleTag(), { dateStyle: "medium", timeStyle: "short" });
 }
 
 export function AportesStellarHistorial() {
