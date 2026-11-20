@@ -89,33 +89,6 @@ function RecomendacionAhorro() {
   );
 }
 
-function ConversionFutura() {
-  return (
-    <Card className="flex flex-col gap-2 p-4 sm:p-5">
-      <CardHeader
-        title="Conversión BOB → USDC (próximamente)"
-        subtitle="Preparado para una futura integración con proveedores fiat-to-crypto legales en Bolivia."
-      />
-      <p className="text-sm text-tinta-suave">
-        PLATIK no convierte ni simula conversiones. Cuando esté disponible, el flujo será:
-      </p>
-      <ol className="list-decimal space-y-1 pl-5 text-sm text-tinta-suave">
-        <li>Elegir el monto en bolivianos y ver la cotización real del proveedor.</li>
-        <li>Revisar tipo de cambio, comisión, red y límites antes de confirmar.</li>
-        <li>Confirmar explícitamente la operación (nunca automática).</li>
-        <li>Recibir los USDC en tu wallet y registrarlos como depósito verificado en la meta elegida.</li>
-      </ol>
-      <p className="text-sm text-tinta-suave">
-        Solo usaremos un proveedor fiat-to-crypto que opere legalmente en Bolivia, con verificación de identidad
-        (KYC) y custodia clara. Hasta entonces, puedes recibir USDC directamente desde otra wallet con el QR de esta sección.
-      </p>
-      <div>
-        <Button disabled variant="outline">Disponible pronto</Button>
-      </div>
-    </Card>
-  );
-}
-
 export function BilleteraDigital() {
   return (
     <div className="space-y-6">
@@ -139,7 +112,6 @@ export function BilleteraDigital() {
       <Suspense fallback={null}>
         <RecomendacionAhorro />
       </Suspense>
-      <ConversionFutura />
     </div>
   );
 }
