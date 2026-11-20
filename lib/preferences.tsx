@@ -116,7 +116,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    document.documentElement.lang = lang;
+    // El contenido principal sigue en español; solo la navegación se traduce.
+    // No marcamos todo el documento como "en" para no romper lectores de pantalla.
     try {
       window.localStorage.setItem(LANG_KEY, lang);
     } catch {

@@ -98,6 +98,104 @@ export function writeSpaces(storage: StorageLike, mode: PlatikMode, spaces: Spac
   }
 }
 
+/** Índice global por modo: depósito USDC -> espacio que lo registró. */
+export function usdcDepositsIndexKeyForMode(mode: PlatikMode): string {
+  return `platik:usdc-deposits:${mode}:v1`;
+}
+
+export function readUsdcDepositIndex(storage: StorageLike, mode: PlatikMode): Record<string, string> {
+  try {
+    const raw = storage.getItem(usdcDepositsIndexKeyForMode(mode));
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [id, space] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof space === "string" && space) out[id] = space;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function writeUsdcDepositIndex(storage: StorageLike, mode: PlatikMode, index: Record<string, string>): void {
+  try {
+    storage.setItem(usdcDepositsIndexKeyForMode(mode), JSON.stringify(index));
+  } catch {
+    // noop
+  }
+}
+
+/**
+ * Reclama un depósito para un espacio. Devuelve false si otro espacio ya lo
+ * registró: así la misma wallet no puede contar el mismo pago en dos espacios.
+ */
+export function claimUsdcDeposit(
+  storage: StorageLike,
+  mode: PlatikMode,
+  depositId: string,
+  spaceId: string,
+): boolean {
+  const index = readUsdcDepositIndex(storage, mode);
+  const owner = index[depositId];
+  if (owner && owner !== spaceId) return false;
+  if (owner !== spaceId) {
+    index[depositId] = spaceId;
+    writeUsdcDepositIndex(storage, mode, index);
+  }
+  return true;
+}
+
+export function releaseUsdcDeposit(
+  storage: StorageLike,
+  mode: PlatikMode,
+  depositId: string,
+  spaceId: string,
+): void {
+  const index = readUsdcDepositIndex(storage, mode);
+  if (index[depositId] !== spaceId) return;
+  delete index[depositId];
+  writeUsdcDepositIndex(storage, mode, index);
+}
+
+export function releaseUsdcDepositsForSpace(storage: StorageLike, mode: PlatikMode, spaceId: string): void {
+  const index = readUsdcDepositIndex(storage, mode);
+  let changed = false;
+  for (const id of Object.keys(index)) {
+    if (index[id] === spaceId) {
+      delete index[id];
+      changed = true;
+    }
+  }
+  if (changed) writeUsdcDepositIndex(storage, mode, index);
+}
+
+/**
+ * Dueño de cada depósito conocido en el modo. El índice explícito manda;
+ * para datos antiguos sin índice se usa prioridad Personal y luego el orden
+ * de los emprendimientos, de modo que duplicados históricos se limpien.
+ */
+export function usdcDepositOwners(
+  storage: StorageLike,
+  mode: PlatikMode,
+  spaces: SpacesState,
+): Map<string, string> {
+  const ordered = [PERSONAL_SPACE, ...spaces.ventures.map((v) => v.id)];
+  const validSpaces = new Set(ordered);
+  const owners = new Map<string, string>();
+  for (const [id, space] of Object.entries(readUsdcDepositIndex(storage, mode))) {
+    if (validSpaces.has(space)) owners.set(id, space);
+  }
+  for (const spaceId of ordered) {
+    const stored = readPlatik(storage, mode, spaceId);
+    for (const d of stored?.data.depositosUsdc ?? []) {
+      if (!owners.has(d.id)) owners.set(d.id, spaceId);
+    }
+  }
+  return owners;
+}
+
 export function defaultPlatikData(mode: PlatikMode): PlatikData {
   return mode === "demo" ? buildDemoData() : buildEmptyData();
 }

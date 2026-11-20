@@ -25,9 +25,10 @@ export function useUsdcDeposits(address: string | null | undefined) {
   const sync = useCallback(
     async (defaultGoalId?: string): Promise<DepositoUsdc[]> => {
       if (!address) return [];
+      const upsert = upsertRef.current;
       const current = depositsRef.current.filter((d) => d.walletAddress === address);
       const synced = await syncDepositsUsdc(address, current, defaultGoalId);
-      for (const d of synced) upsertRef.current(d);
+      for (const d of synced) upsert(d);
       return synced;
     },
     [address],

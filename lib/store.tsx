@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
 } from "react";
 import type { AporteStellar, DepositoUsdc } from "./stellar/types";
 import type {
@@ -16,7 +17,9 @@ import type {
   PlatikData,
   Profile,
   Transaction,
+  UserProfileType,
 } from "./types";
+import { defaultDistributionForProfile } from "./distribution";
 import { buildEmptyData } from "./demo-data";
 import {
   dataKeyForMode,
@@ -26,12 +29,16 @@ import {
   MAX_VENTURES,
   MODE_KEY,
   PERSONAL_SPACE,
+  claimUsdcDeposit,
   readMode,
   readPlatik,
   readSpaces,
+  releaseUsdcDeposit,
+  releaseUsdcDepositsForSpace,
   SCHEMA_VERSION,
   spacesKeyForMode,
   writeMode,
+  usdcDepositOwners,
   writePlatik,
   writeSpaces,
   type PlatikMode,
@@ -40,26 +47,32 @@ import {
   type VentureType,
 } from "./storage";
 
-type Action =
-  | { type: "hydrate"; state: Loaded }
-  | { type: "tx/add"; tx: Transaction }
-  | { type: "tx/update"; tx: Transaction }
-  | { type: "tx/delete"; id: string }
-  | { type: "goal/add"; goal: Goal }
-  | { type: "goal/update"; goal: Goal }
-  | { type: "goal/delete"; id: string }
-  | { type: "goal/aporte"; id: string; monto: number }
-  | { type: "profile/update"; profile: Profile }
-  | { type: "distribution/update"; distribution: DistributionCategory[] }
-  | { type: "openingBalance/set"; openingBalance: OpeningBalance | null }
-  | { type: "balanceAdjustment/add"; adjustment: BalanceAdjustment }
-  | { type: "balanceAdjustment/delete"; id: string }
-  | { type: "balanceAdjustment/update"; adjustment: BalanceAdjustment }
-  | { type: "aporteStellar/upsert"; aporte: AporteStellar }
-  | { type: "aporteStellar/delete"; id: string }
-  | { type: "depositoUsdc/upsert"; deposito: DepositoUsdc }
-  | { type: "depositoUsdc/delete"; id: string }
-  | { type: "reset" };
+interface Target {
+  mode: PlatikMode;
+  spaceId: string;
+}
+
+type MutationAction =
+  | { type: "tx/add"; tx: Transaction; target: Target }
+  | { type: "tx/update"; tx: Transaction; target: Target }
+  | { type: "tx/delete"; id: string; target: Target }
+  | { type: "goal/add"; goal: Goal; target: Target }
+  | { type: "goal/update"; goal: Goal; target: Target }
+  | { type: "goal/delete"; id: string; target: Target }
+  | { type: "goal/aporte"; id: string; monto: number; target: Target }
+  | { type: "profile/update"; profile: Profile; target: Target }
+  | { type: "distribution/update"; distribution: DistributionCategory[]; target: Target }
+  | { type: "openingBalance/set"; openingBalance: OpeningBalance | null; target: Target }
+  | { type: "balanceAdjustment/add"; adjustment: BalanceAdjustment; target: Target }
+  | { type: "balanceAdjustment/delete"; id: string; target: Target }
+  | { type: "balanceAdjustment/update"; adjustment: BalanceAdjustment; target: Target }
+  | { type: "aporteStellar/upsert"; aporte: AporteStellar; target: Target }
+  | { type: "aporteStellar/delete"; id: string; target: Target }
+  | { type: "depositoUsdc/upsert"; deposito: DepositoUsdc; target: Target }
+  | { type: "depositoUsdc/delete"; id: string; target: Target }
+  | { type: "reset"; target: Target };
+
+type Action = { type: "hydrate"; state: Loaded } | MutationAction;
 
 interface Loaded {
   mode: PlatikMode;
@@ -75,9 +88,11 @@ function withData(state: State, data: Partial<PlatikData>): State {
 }
 
 function reducer(state: State, action: Action): State {
+  if (action.type === "hydrate") return action.state;
+  if (action.target.mode !== state.mode || action.target.spaceId !== state.spaces.active) {
+    return state;
+  }
   switch (action.type) {
-    case "hydrate":
-      return action.state;
     case "tx/add":
       return withData(state, { transactions: [action.tx, ...state.data.transactions] });
     case "tx/update":
@@ -153,7 +168,7 @@ function reducer(state: State, action: Action): State {
     case "reset":
       return {
         ...state,
-        data: defaultPlatikData(state.mode),
+        data: resetDataForSpace(state),
         customized: false,
       };
     default:
@@ -221,8 +236,11 @@ function loadSpace(mode: PlatikMode, spaceId: string): Loaded {
   let customized = false;
   if (validId !== PERSONAL_SPACE && !stored) {
     const personalProfile = readPlatik(storage, mode, PERSONAL_SPACE)?.data.profile ?? defaultPlatikData(mode).profile;
-    data = seedVentureData({ ...defaultPlatikData(mode), profile: personalProfile },
-      spaces.ventures.find((v) => v.id === validId)?.nombre ?? "Mi emprendimiento",
+    const venture = spaces.ventures.find((v) => v.id === validId);
+    data = seedVentureData(
+      { ...buildEmptyData(), profile: personalProfile },
+      venture?.nombre ?? "Mi emprendimiento",
+      venture?.tipo,
     );
   } else if (stored) {
     data = stored.data;
@@ -235,6 +253,16 @@ function loadSpace(mode: PlatikMode, spaceId: string): Loaded {
   } else {
     data = defaultPlatikData(mode);
   }
+  const depositOwners = usdcDepositOwners(storage, mode, spaces);
+  if (depositOwners.size > 0) {
+    data = {
+      ...data,
+      depositosUsdc: data.depositosUsdc.filter((d) => {
+        const owner = depositOwners.get(d.id);
+        return owner === undefined || owner === validId;
+      }),
+    };
+  }
   return { mode, spaces, data, customized };
 }
 
@@ -242,9 +270,21 @@ function loadMode(mode: PlatikMode): Loaded {
   return loadSpace(mode, readSpaces(window.localStorage, mode).active);
 }
 
-function seedVentureData(base: PlatikData, nombre: string): PlatikData {
+const VENTURE_TIPO_USUARIO: Record<VentureType, UserProfileType> = {
+  emprendimiento: "emprendedor",
+  negocio: "empresa",
+  freelance: "freelancer",
+};
+
+function tipoUsuarioForVenture(tipo: VentureType): UserProfileType {
+  return VENTURE_TIPO_USUARIO[tipo] ?? "emprendedor";
+}
+
+function seedVentureData(base: PlatikData, nombre: string, tipo: VentureType = "emprendimiento"): PlatikData {
+  const tipoUsuario = tipoUsuarioForVenture(tipo);
   return {
     ...base,
+    distribution: defaultDistributionForProfile(tipoUsuario),
     transactions: [],
     goals: [],
     openingBalance: null,
@@ -254,9 +294,27 @@ function seedVentureData(base: PlatikData, nombre: string): PlatikData {
     profile: {
       ...base.profile,
       nombreNegocio: nombre,
+      tipoUsuario,
       onboardingDone: true,
       betaSetupDone: true,
     },
+  };
+}
+
+function resetDataForSpace(state: State): PlatikData {
+  const venture = state.spaces.ventures.find((v) => v.id === state.spaces.active);
+  if (!venture) return defaultPlatikData(state.mode);
+  const tipoUsuario = tipoUsuarioForVenture(venture.tipo);
+  return {
+    ...buildEmptyData(),
+    profile: {
+      ...state.data.profile,
+      nombreNegocio: venture.nombre,
+      tipoUsuario,
+      onboardingDone: true,
+      betaSetupDone: true,
+    },
+    distribution: defaultDistributionForProfile(tipoUsuario),
   };
 }
 
@@ -270,6 +328,11 @@ const INITIAL: State = {
 export function PlatikProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [hydrated, setHydrated] = useReducer(() => true, false);
+  const activeTargetRef = useRef<Target>({ mode: state.mode, spaceId: state.spaces.active });
+
+  useEffect(() => {
+    activeTargetRef.current = { mode: state.mode, spaceId: state.spaces.active };
+  }, [state.mode, state.spaces.active]);
 
   useEffect(() => {
     try {
@@ -317,6 +380,7 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
   }, [hydrated, state.mode, state.spaces.active]);
 
   const store = useMemo<Store>(() => {
+    const target: Target = { mode: state.mode, spaceId: state.spaces.active };
     const activeVenture = state.spaces.ventures.find((v) => v.id === state.spaces.active);
     const go = (next: Loaded) => {
       writeSpaces(window.localStorage, next.mode, next.spaces);
@@ -346,7 +410,7 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
           go({ mode, spaces: { active: PERSONAL_SPACE, ventures: [] }, data: defaultPlatikData(mode), customized: false });
         }
       },
-      resetCurrent: () => dispatch({ type: "reset" }),
+      resetCurrent: () => dispatch({ type: "reset", target }),
       selectSpace: (spaceId) => go(loadSpace(state.mode, spaceId)),
       createVenture: (nombre, tipo) => {
         if (state.spaces.ventures.length >= MAX_VENTURES) return false;
@@ -355,7 +419,19 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
         const id = `v-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
         const venture: VentureSpace = { id, nombre: clean, tipo };
         const spaces = { active: id, ventures: [...state.spaces.ventures, venture] };
-        const data = seedVentureData(state.data, clean);
+        let personalProfile =
+          state.spaces.active === PERSONAL_SPACE
+            ? state.data.profile
+            : defaultPlatikData(state.mode).profile;
+        if (state.spaces.active !== PERSONAL_SPACE) {
+          try {
+            personalProfile =
+              readPlatik(window.localStorage, state.mode, PERSONAL_SPACE)?.data.profile ?? personalProfile;
+          } catch {
+            // noop
+          }
+        }
+        const data = seedVentureData({ ...buildEmptyData(), profile: personalProfile }, clean, tipo);
         go({ mode: state.mode, spaces, data, customized: false });
         return true;
       },
@@ -377,37 +453,64 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
         };
         try {
           window.localStorage.removeItem(dataKeyForSpace(state.mode, id));
+          releaseUsdcDepositsForSpace(window.localStorage, state.mode, id);
         } catch {
           // noop
         }
+        writeSpaces(window.localStorage, state.mode, spaces);
         go(loadSpace(state.mode, spaces.active));
       },
-      addTransaction: (tx) => dispatch({ type: "tx/add", tx: { ...tx, id: newId() } }),
-      updateTransaction: (tx) => dispatch({ type: "tx/update", tx }),
-      deleteTransaction: (id) => dispatch({ type: "tx/delete", id }),
-      addGoal: (goal) => dispatch({ type: "goal/add", goal: { ...goal, id: newId() } }),
-      updateGoal: (goal) => dispatch({ type: "goal/update", goal }),
-      deleteGoal: (id) => dispatch({ type: "goal/delete", id }),
-      addAporte: (id, monto) => dispatch({ type: "goal/aporte", id, monto }),
-      updateProfile: (profile) => dispatch({ type: "profile/update", profile }),
-      updateDistribution: (distribution) => dispatch({ type: "distribution/update", distribution }),
+      addTransaction: (tx) => dispatch({ type: "tx/add", tx: { ...tx, id: newId() }, target }),
+      updateTransaction: (tx) => dispatch({ type: "tx/update", tx, target }),
+      deleteTransaction: (id) => dispatch({ type: "tx/delete", id, target }),
+      addGoal: (goal) => dispatch({ type: "goal/add", goal: { ...goal, id: newId() }, target }),
+      updateGoal: (goal) => dispatch({ type: "goal/update", goal, target }),
+      deleteGoal: (id) => dispatch({ type: "goal/delete", id, target }),
+      addAporte: (id, monto) => dispatch({ type: "goal/aporte", id, monto, target }),
+      updateProfile: (profile) => dispatch({ type: "profile/update", profile, target }),
+      updateDistribution: (distribution) => dispatch({ type: "distribution/update", distribution, target }),
       setOpeningBalance: (opening) =>
         dispatch({
           type: "openingBalance/set",
           openingBalance: opening ? { ...opening, id: newId() } : null,
+          target,
         }),
       addBalanceAdjustment: (adjustment) =>
         dispatch({
           type: "balanceAdjustment/add",
           adjustment: { ...adjustment, id: newId() },
+          target,
         }),
       updateBalanceAdjustment: (adjustment) =>
-        dispatch({ type: "balanceAdjustment/update", adjustment }),
-      deleteBalanceAdjustment: (id) => dispatch({ type: "balanceAdjustment/delete", id }),
-      upsertAporteStellar: (aporte) => dispatch({ type: "aporteStellar/upsert", aporte }),
-      deleteAporteStellar: (id) => dispatch({ type: "aporteStellar/delete", id }),
-      upsertDepositoUsdc: (deposito) => dispatch({ type: "depositoUsdc/upsert", deposito }),
-      deleteDepositoUsdc: (id) => dispatch({ type: "depositoUsdc/delete", id }),
+        dispatch({ type: "balanceAdjustment/update", adjustment, target }),
+      deleteBalanceAdjustment: (id) => dispatch({ type: "balanceAdjustment/delete", id, target }),
+      upsertAporteStellar: (aporte) => dispatch({ type: "aporteStellar/upsert", aporte, target }),
+      deleteAporteStellar: (id) => dispatch({ type: "aporteStellar/delete", id, target }),
+      upsertDepositoUsdc: (deposito) => {
+        const latest = activeTargetRef.current;
+        if (latest.mode !== target.mode || latest.spaceId !== target.spaceId) return;
+        let owned = true;
+        try {
+          owned = claimUsdcDeposit(window.localStorage, target.mode, deposito.id, target.spaceId);
+        } catch {
+          owned = true;
+        }
+        if (!owned) {
+          if (state.data.depositosUsdc.some((d) => d.id === deposito.id)) {
+            dispatch({ type: "depositoUsdc/delete", id: deposito.id, target });
+          }
+          return;
+        }
+        dispatch({ type: "depositoUsdc/upsert", deposito, target });
+      },
+      deleteDepositoUsdc: (id) => {
+        try {
+          releaseUsdcDeposit(window.localStorage, target.mode, id, target.spaceId);
+        } catch {
+          // noop
+        }
+        dispatch({ type: "depositoUsdc/delete", id, target });
+      },
     };
   }, [state, hydrated]);
 

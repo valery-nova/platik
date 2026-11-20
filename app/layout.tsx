@@ -29,7 +29,7 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "try{var t=localStorage.getItem('platik:theme:v1');if(t==='dark'){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark'}var l=localStorage.getItem('platik:lang:v1');if(l==='es'||l==='en'){document.documentElement.lang=l}}catch(e){}",
+              "try{var t=localStorage.getItem('platik:theme:v1');if(t==='dark'){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark'}localStorage.getItem('platik:lang:v1')}catch(e){}",
           }}
         />
         <PreferencesProvider>

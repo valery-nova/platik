@@ -20,7 +20,7 @@ import {
 import type { DistributionCategory } from "@/lib/types";
 
 export function DistribucionEditor() {
-  const { data, hydrated, updateDistribution, mode } = usePlatik();
+  const { data, hydrated, updateDistribution, mode, activeSpaceType } = usePlatik();
   const moneda = data.profile.moneda;
   const [dist, setDist] = useState<DistributionCategory[]>(data.distribution);
   const [aviso, setAviso] = useState("");
@@ -81,7 +81,11 @@ export function DistribucionEditor() {
   }
 
   function restablecer() {
-    setDist(mode === "demo" ? buildDemoData().distribution : defaultDistributionForProfile(data.profile.tipoUsuario));
+    setDist(
+      activeSpaceType === "personal" && mode === "demo"
+        ? buildDemoData().distribution
+        : defaultDistributionForProfile(data.profile.tipoUsuario),
+    );
     notify("Distribución restablecida a los valores iniciales.");
   }
 
