@@ -3,6 +3,7 @@ import { Montserrat } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { PreferencesProvider } from "@/lib/preferences";
 import "@pollar/react/styles.css";
 import "./globals.css";
 
@@ -23,12 +24,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={montserrat.variable}>
+    <html lang="es" suppressHydrationWarning className={montserrat.variable}>
       <body className="min-h-screen">
-        <AnalyticsTracker />
-        {children}
-        <Analytics />
-        <SpeedInsights />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('platik:theme:v1');if(t==='dark'){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark'}var l=localStorage.getItem('platik:lang:v1');if(l==='es'||l==='en'){document.documentElement.lang=l}}catch(e){}",
+          }}
+        />
+        <PreferencesProvider>
+          <AnalyticsTracker />
+          {children}
+          <Analytics />
+          <SpeedInsights />
+        </PreferencesProvider>
       </body>
     </html>
   );

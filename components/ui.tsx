@@ -4,6 +4,7 @@ import Image from "next/image";
 import { X } from "lucide-react";
 import { useId, type ReactNode } from "react";
 import { usePlatik } from "@/lib/store";
+import { usePreferences } from "@/lib/preferences";
 
 export function Card({
   children,
@@ -128,14 +129,17 @@ export function Badge({
   );
 }
 
-export function DemoBadge() {
+export function DemoBadge({ inline = false }: { inline?: boolean }) {
   const { mode, hydrated } = usePlatik();
+  const { t } = usePreferences();
   if (!hydrated) return null;
-  return mode === "demo" ? (
-    <Badge tone="demo">Datos de demostración</Badge>
-  ) : (
-    <Badge tone="lavanda">Prueba beta · 72 h</Badge>
-  );
+  const badge =
+    mode === "demo" ? (
+      <Badge tone="demo">{t.badges.demo}</Badge>
+    ) : (
+      <Badge tone="lavanda">{t.badges.beta}</Badge>
+    );
+  return inline ? badge : <div>{badge}</div>;
 }
 
 export function Field({
