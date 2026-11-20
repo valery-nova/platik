@@ -410,7 +410,16 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
           go({ mode, spaces: { active: PERSONAL_SPACE, ventures: [] }, data: defaultPlatikData(mode), customized: false });
         }
       },
-      resetCurrent: () => dispatch({ type: "reset", target }),
+      resetCurrent: () => {
+        try {
+          for (const d of state.data.depositosUsdc) {
+            releaseUsdcDeposit(window.localStorage, state.mode, d.id, state.spaces.active);
+          }
+        } catch {
+          // noop
+        }
+        dispatch({ type: "reset", target });
+      },
       selectSpace: (spaceId) => go(loadSpace(state.mode, spaceId)),
       createVenture: (nombre, tipo) => {
         if (state.spaces.ventures.length >= MAX_VENTURES) return false;
