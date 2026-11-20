@@ -61,6 +61,11 @@ export async function getBalances(address: string): Promise<BalancesInfo> {
   return parseBalances(account);
 }
 
+/** Direcciones públicas Stellar (G... de 56 caracteres). */
+export function isStellarAddress(address: string): boolean {
+  return /^G[A-Z2-7]{55}$/.test(address.trim());
+}
+
 /** Comprueba la red de una passphrase de wallet contra la de Testnet. */
 export function isTestnetPassphrase(passphrase: string): boolean {
   return passphrase === NETWORK_PASSPHRASE_TESTNET;

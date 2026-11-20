@@ -14,10 +14,11 @@ import {
   getTestnetRecipient,
   NETWORK_PASSPHRASE_TESTNET,
 } from "./config";
-import { horizonServer, loadAccount, parseBalances } from "./account";
+import { horizonServer, isStellarAddress, loadAccount, parseBalances } from "./account";
 import {
   InsufficientBalanceError,
   InvalidAmountError,
+  InvalidDestinationError,
   RecipientNotConfiguredError,
   TransactionFailedError,
   TrustlineMissingError,
@@ -111,9 +112,12 @@ export async function signAndSubmitUsdcPayment(params: {
   sourceAddress: string;
   amountInput: string;
   memoText?: string;
+  /** Destino Stellar (G...). Si se omite, usa NEXT_PUBLIC_STELLAR_TESTNET_RECIPIENT. */
+  destination?: string;
 }): Promise<SignAndSubmitResult> {
-  const recipient = getTestnetRecipient();
+  const recipient = params.destination?.trim() || getTestnetRecipient();
   if (!recipient) throw new RecipientNotConfiguredError();
+  if (!isStellarAddress(recipient)) throw new InvalidDestinationError();
 
   const amount = parseUsdcAmount(params.amountInput);
 

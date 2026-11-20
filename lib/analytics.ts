@@ -21,6 +21,7 @@ export type AnalyticsEvent =
   | "wallet_connected"
   | "usdc_deposit_started"
   | "usdc_deposit_completed"
+  | "social_link_click"
   | "feature_error";
 
 const ALLOWED_KEYS = new Set([

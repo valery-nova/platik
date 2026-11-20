@@ -46,6 +46,37 @@ export interface AporteStellar {
   error?: string;
 }
 
+/** Estados de un depósito USDC entrante verificado en Horizon. */
+export type DepositoUsdcEstado = "pendiente" | "confirmado" | "fallido";
+
+/**
+ * Depósito USDC recibido en la wallet del usuario (Stellar Testnet).
+ * Es un registro contable de PLATIK: no mueve fondos ni modifica balances
+ * reales; solo clasifica el aporte cuando la transacción está verificada.
+ */
+export interface DepositoUsdc {
+  id: string;
+  /** Meta de ahorro (Goal.id) a la que se clasifica, si el usuario la asigna. */
+  goalId?: string;
+  /** Wallet del usuario que recibió el depósito. */
+  walletAddress: string;
+  /** Dirección origen cuando Horizon la expone. */
+  originAddress?: string;
+  /** Dirección destino verificada (la wallet del usuario). */
+  destinationAddress: string;
+  assetCode: string;
+  assetIssuer: string;
+  red: "testnet";
+  /** Importe en USDC (número decimal). */
+  importe: number;
+  estado: DepositoUsdcEstado;
+  txHash: string;
+  ledger?: number;
+  createdAt: string;
+  confirmedAt?: string;
+  error?: string;
+}
+
 /** Estado de la wallet conectada en la UI. */
 export interface WalletInfo {
   address: string;

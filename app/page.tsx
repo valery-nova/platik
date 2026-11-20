@@ -1,6 +1,9 @@
 import Image from "next/image";
 import { YearNote } from "@/components/year-note";
 import { ProbarPlatik } from "@/components/probar-platik";
+import { SocialLinks } from "@/components/social-links";
+import { BrandLogo } from "@/components/brand-logo";
+import { PreferenceToggles } from "@/components/preference-toggles";
 import {
   ArrowRight,
   BarChart3,
@@ -43,7 +46,7 @@ const BENEFICIOS = [
   {
     icon: PiggyBank,
     titulo: "Metas de ahorro",
-    texto: "Reserva para tu negocio con seguimiento visual de cada meta.",
+    texto: "Reserva para tus metas con seguimiento visual de cada una.",
   },
   {
     icon: Coins,
@@ -58,18 +61,14 @@ export default function LandingPage() {
       {/* Navbar */}
       <header className="sticky top-0 z-40 border-b border-petroleo/8 bg-marfil/85 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/logos/logo-without-slogan.svg"
-            alt="PLATIK"
-            width={150}
-            height={42}
-            className="h-9 w-auto"
-          />
-          <ProbarPlatik className="inline-flex items-center gap-2 rounded-xl bg-petroleo px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-petroleo-800">
+          <BrandLogo variant="without-slogan" className="h-9 w-auto" priority />
+          <div className="flex items-center gap-2">
+            <PreferenceToggles />
+            <ProbarPlatik className="inline-flex items-center gap-2 rounded-xl bg-petroleo px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-petroleo-800">
             Probar PLATIK
             <ArrowRight size={16} />
-          </ProbarPlatik>
+            </ProbarPlatik>
+          </div>
         </div>
       </header>
 
@@ -87,18 +86,19 @@ export default function LandingPage() {
           <div className="anim-fade-up">
             <span className="mb-5 inline-flex items-center gap-2 rounded-full bg-menta-100 px-3.5 py-1.5 text-xs font-semibold text-menta-700">
               <ShieldCheck size={14} />
-              Hecho para emprendedores y pequeños negocios
+              Finanzas claras para todos
             </span>
             <h1 className="text-4xl font-bold leading-tight text-petroleo sm:text-5xl">
               Entiende tu dinero.
               <br />
               Decide mejor.
               <br />
-              <span className="text-menta-600">Haz crecer tu negocio.</span>
+              <span className="text-menta-600">Ahorra para lo que importa.</span>
             </h1>
             <p className="mt-5 max-w-lg text-lg text-tinta-suave">
-              PLATIK es tu copiloto financiero: convierte tus ingresos y gastos en
-              explicaciones claras, metas de ahorro y decisiones fáciles — sin
+              PLATIK es tu copiloto financiero: transforma tus ingresos y gastos en
+              información clara, te ayuda a alcanzar tus metas de ahorro y te
+              permite tomar mejores decisiones con tu dinero, sin necesidad de
               saber contabilidad.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
@@ -298,14 +298,8 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-petroleo/8 bg-white py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 sm:flex-row sm:px-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/brand/logos/logo-with-slogan.svg"
-            alt="PLATIK — Tu copiloto financiero con IA"
-            width={200}
-            height={81}
-            className="h-14 w-auto"
-          />
+          <BrandLogo variant="with-slogan" className="h-14 w-auto" />
+          <SocialLinks />
           <YearNote />
         </div>
       </footer>

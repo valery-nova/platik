@@ -20,16 +20,18 @@ import {
 import type { DistributionCategory } from "@/lib/types";
 
 export function DistribucionEditor() {
-  const { data, hydrated, updateDistribution, mode } = usePlatik();
+  const { data, hydrated, updateDistribution, mode, activeSpaceType } = usePlatik();
   const moneda = data.profile.moneda;
   const [dist, setDist] = useState<DistributionCategory[]>(data.distribution);
   const [aviso, setAviso] = useState("");
   const [propuesta, setPropuesta] = useState<PropuestaDistribucion | null>(null);
   const [categoriaNueva, setCategoriaNueva] = useState("");
   const [prev, setPrev] = useState(data.distribution);
+  const [montoTexto, setMontoTexto] = useState<Record<string, string>>({});
   if (prev !== data.distribution) {
     setDist(data.distribution);
     setPrev(data.distribution);
+    setMontoTexto({});
   }
 
   const saldo = useMemo(() => saldoDisponible(data, moneda), [data, moneda]);
@@ -51,10 +53,19 @@ export function DistribucionEditor() {
   }
 
   function setMonto(key: string, value: string) {
-    if (disponible === null) return;
     const n = Number(value);
-    const pct = pctDe(currencyDigits(moneda))(Math.min(Number.isFinite(n) ? n : 0, disponible), disponible);
+    setMontoTexto((m) => ({ ...m, [key]: value }));
+    if (disponible === null || !Number.isFinite(n)) return;
+    const pct = pctDe(currencyDigits(moneda))(Math.min(Math.max(n, 0), disponible), disponible);
     setDist((d) => d.map((c) => (c.key === key ? { ...c, porcentaje: pct } : c)));
+  }
+
+  function terminarMonto(key: string) {
+    setMontoTexto((m) => {
+      const next = { ...m };
+      delete next[key];
+      return next;
+    });
   }
 
   function agregarCategoria() {
@@ -70,7 +81,11 @@ export function DistribucionEditor() {
   }
 
   function restablecer() {
-    setDist(mode === "demo" ? buildDemoData().distribution : defaultDistributionForProfile(data.profile.tipoUsuario));
+    setDist(
+      activeSpaceType === "personal" && mode === "demo"
+        ? buildDemoData().distribution
+        : defaultDistributionForProfile(data.profile.tipoUsuario),
+    );
     notify("Distribución restablecida a los valores iniciales.");
   }
 
@@ -84,18 +99,38 @@ export function DistribucionEditor() {
     <Card className="p-6">
       <CardHeader
         title="Distribución del dinero disponible"
-        subtitle="Edita porcentaje o monto; ambos se mantienen sincronizados"
-        action={<Button variant="outline" onClick={recomendar}><Sparkles size={15} /> Recomendar</Button>}
+        subtitle="Puedes escribir el porcentaje o el monto; ambos se mantienen sincronizados."
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={recomendar}><Sparkles size={15} /> Recomendar</Button>
+            <Button variant="outline" onClick={restablecer}><RefreshCcw size={15} /> Restablecer</Button>
+          </div>
+        }
       />
       {aviso && <p className="mb-3 rounded-xl bg-menta-100 px-4 py-2.5 text-sm font-medium text-menta-700">{aviso}</p>}
 
       <div className="mb-4 rounded-xl bg-menta-50 px-4 py-3 text-sm">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="text-tinta-suave">Dinero disponible</span>
+          <span className="text-tinta-suave">Dinero disponible para distribuir</span>
           <span className="text-lg font-bold text-petroleo">{disponible === null ? "No determinable" : formatMoney(disponible, moneda)}</span>
         </div>
         <p className="mt-1 text-xs text-tinta-suave">{saldo.motivo} No es tu saldo bancario ni tus ingresos brutos.</p>
       </div>
+
+      {disponible === null && (
+        <div className="mb-4 rounded-xl border border-coral-600/30 bg-coral-50 px-4 py-3 text-sm text-tinta">
+          <p className="font-semibold text-coral-600">Los montos no están disponibles todavía.</p>
+          <p className="mt-1 text-tinta-suave">
+            PLATIK calcula el dinero disponible con tu saldo inicial, ajustes y movimientos en {moneda}. Puedes seguir editando los <strong>porcentajes</strong>; cuando el disponible sea determinable, los montos aparecerán aquí.
+            {saldo.estado === "incompleto" && " Hay ingresos o gastos en otra moneda sin cotización."}
+          </p>
+        </div>
+      )}
+      {disponible !== null && (
+        <p className="mb-4 text-xs text-tinta-suave">
+          Al escribir un monto, PLATIK lo convierte a porcentaje sobre {formatMoney(disponible, moneda)}. Si cambias un porcentaje, el monto se recalcula solo. Ambos se guardan juntos.
+        </p>
+      )}
 
       <div className="space-y-4">
         {dist.map((c, catIndex) => {
@@ -111,7 +146,17 @@ export function DistribucionEditor() {
                 {montos && disponible !== null ? (
                   <div className="flex items-center gap-1.5">
                     <span id={`dist-amount-${catIndex}`} className="sr-only">Monto</span>
-                    <Input type="number" min={0} max={disponible} step={paso} aria-labelledby={`dist-amount-${catIndex} dist-cat-${catIndex}`} value={importe ?? 0} onChange={(e) => setMonto(c.key, e.target.value)} className="w-36" />
+                    <Input
+                      type="number"
+                      min={0}
+                      max={disponible}
+                      step={paso}
+                      aria-labelledby={`dist-amount-${catIndex} dist-cat-${catIndex}`}
+                      value={montoTexto[c.key] ?? importe ?? 0}
+                      onChange={(e) => setMonto(c.key, e.target.value)}
+                      onBlur={() => terminarMonto(c.key)}
+                      className="w-36"
+                    />
                     <span aria-hidden="true" className="text-sm text-tinta-suave">{moneda}</span>
                   </div>
                 ) : null}
@@ -139,7 +184,9 @@ export function DistribucionEditor() {
         <div>
           <div className="mb-1.5 flex justify-between text-xs">
             <span className="text-tinta-suave">Total asignado</span>
-            <span className={`font-semibold ${validacion.valida ? "text-menta-700" : "text-coral-600"}`}>{Math.round(validacion.total * 10) / 10}%</span>
+            <span className={`font-semibold ${validacion.valida ? "text-menta-700" : "text-coral-600"}`}>
+              {Math.round(validacion.total * 10) / 10}%{disponible !== null && montos ? ` · ${formatMoney(disponible - montos.sinAsignar, moneda)}` : ""}
+            </span>
           </div>
           <ProgressBar value={Math.min(100, validacion.total)} tone={validacion.valida ? "menta" : "coral"} />
           {validacion.errores.map((e) => <p key={e} className="mt-1.5 text-xs text-coral-600">{e}</p>)}

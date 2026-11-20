@@ -140,6 +140,7 @@ export interface FounderMetrics {
     devices: BreakdownItem[] | null;
     countries: BreakdownItem[] | null;
     browsers: BreakdownItem[] | null;
+    socialNetworks: BreakdownItem[] | null;
     status: MetricStatus;
     detail?: string;
   };
@@ -175,6 +176,7 @@ const PRODUCT_EVENTS = [
   "wallet_connected",
   "usdc_deposit_started",
   "usdc_deposit_completed",
+  "social_link_click",
   "feature_error",
 ] as const;
 
@@ -197,6 +199,7 @@ const EVENT_LABELS: Record<string, string> = {
   wallet_connected: "Billetera conectada",
   usdc_deposit_started: "Depósito USDC iniciado",
   usdc_deposit_completed: "Depósito USDC completado",
+  social_link_click: "Click en red social",
   feature_error: "Error de funcionalidad",
 };
 
@@ -653,6 +656,24 @@ async function loadRecentEvents(config: PostHogConfig | null, period: AdminPerio
   }
 }
 
+const SOCIAL_NETWORK_LABELS: Record<string, string> = {
+  linkedin: "LinkedIn",
+  facebook: "Facebook",
+  instagram: "Instagram",
+  x: "X",
+  tiktok: "TikTok",
+};
+
+function labelSocialNetworks(items: BreakdownItem[] | null): BreakdownItem[] | null {
+  if (!items) return null;
+  return items.map((item) => {
+    const label = Object.prototype.hasOwnProperty.call(SOCIAL_NETWORK_LABELS, item.name)
+      ? SOCIAL_NETWORK_LABELS[item.name]
+      : item.name;
+    return { ...item, name: label };
+  });
+}
+
 async function loadBreakdown(
   config: PostHogConfig | null,
   queryFor: (dimension: string) => string,
@@ -679,7 +700,7 @@ async function loadBehavior(
   period: AdminPeriod,
   filters: AdminFilters,
 ): Promise<FounderMetrics["behavior"]> {
-  const [entryPages, exitPages, devices, countries, browsers] = await Promise.all([
+  const [entryPages, exitPages, devices, countries, browsers, socialNetworks] = await Promise.all([
     posthog
       ? loadBreakdown(posthog, () => `SELECT $entry_pathname AS path, count() AS count, count(DISTINCT distinct_id) AS users FROM sessions WHERE ${timeSql("$start_timestamp", period.since, period.until)} GROUP BY path ORDER BY count DESC LIMIT 10`, "path")
       : Promise.resolve(null),
@@ -695,6 +716,9 @@ async function loadBehavior(
     posthog
       ? loadBreakdown(posthog, (dim) => `SELECT properties.${dim} AS value, count() AS count, count(DISTINCT distinct_id) AS users FROM events WHERE ${timeSql("timestamp", period.since, period.until)} ${eventFiltersSql(filters)} GROUP BY value ORDER BY count DESC LIMIT 10`, "$browser")
       : Promise.resolve(null),
+    posthog
+      ? loadBreakdown(posthog, () => `SELECT properties.network AS value, count() AS count, count(DISTINCT distinct_id) AS users FROM events WHERE ${timeSql("timestamp", period.since, period.until)} AND event = 'social_link_click' ${eventFiltersSql(filters)} GROUP BY value ORDER BY count DESC LIMIT 10`, "network")
+      : Promise.resolve(null),
   ]);
   const status: MetricStatus = posthog ? "ok" : "pending_configuration";
   return {
@@ -704,6 +728,7 @@ async function loadBehavior(
     devices,
     countries,
     browsers,
+    socialNetworks: labelSocialNetworks(socialNetworks),
     status,
     detail: posthog ? undefined : "Configura POSTHOG_PERSONAL_API_KEY, POSTHOG_PROJECT_ID y POSTHOG_API_HOST",
   };

@@ -169,6 +169,7 @@ export function migrateData(data: Partial<PlatikData>): PlatikData {
     ? data.balanceAdjustments.map(migrateBalanceAdjustment).filter((a): a is BalanceAdjustment => a !== null)
     : [];
   const aportesStellar = Array.isArray(data.aportesStellar) ? data.aportesStellar : [];
+  const depositosUsdc = Array.isArray(data.depositosUsdc) ? data.depositosUsdc : [];
 
   return {
     transactions,
@@ -178,5 +179,6 @@ export function migrateData(data: Partial<PlatikData>): PlatikData {
     openingBalance,
     balanceAdjustments,
     aportesStellar,
+    depositosUsdc,
   };
 }

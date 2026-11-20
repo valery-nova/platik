@@ -20,6 +20,7 @@ import { formatFecha, formatMoney } from "@/lib/format";
 import { refrescarPendientes } from "@/lib/currency/refresh";
 import { getRateService } from "@/lib/currency/service";
 import type { QuoteFreshness } from "@/lib/currency/freshness";
+import { uiLocaleTag } from "@/lib/locale";
 import type { ExchangeRateQuote, RateType } from "@/lib/currency/rates";
 
 export interface QuoteView {
@@ -80,7 +81,7 @@ function diasAntiguedad(iso?: string): number | null {
 function formatoFechaHora(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  return d.toLocaleString("es", {
+  return d.toLocaleString(uiLocaleTag(), {
     day: "numeric",
     month: "short",
     year: "numeric",

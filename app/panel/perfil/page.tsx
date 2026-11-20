@@ -6,6 +6,7 @@ import { Button, Card, CardHeader, DemoBadge, Field, Input, PageHeader, Select }
 import { SaldoDisponibleCard } from "@/components/saldo-disponible";
 import { DistribucionEditor } from "@/components/distribucion-editor";
 import { FeedbackLink } from "@/components/feedback";
+import { SpacesCard } from "@/components/spaces-card";
 import { usePlatik } from "@/lib/store";
 import { formatMoney } from "@/lib/format";
 import { countryName, listCountries, listCurrencies } from "@/lib/currency/catalog";
@@ -40,7 +41,7 @@ function PerfilForm() {
 
   return (
     <Card className="p-6">
-      <CardHeader title="Datos del negocio" subtitle="Configuración de tu perfil financiero" />
+      <CardHeader title="Datos del espacio" subtitle="Nombre, moneda y país del espacio activo" />
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Nombre del negocio" hint="Cómo se identifica tu negocio en reportes">
           <Input value={draft.nombreNegocio} onChange={(e) => set("nombreNegocio", e.target.value)} placeholder="Ej. Artesanías La Chamba" />
@@ -99,6 +100,7 @@ export default function PerfilPage() {
         </div>
       )}
 
+      <SpacesCard />
       <SaldoDisponibleCard />
       <DistribucionEditor />
       <PerfilForm />

@@ -13,6 +13,7 @@ import type {
 import { montoEnBase } from "./finance";
 import { currencyDigits } from "./currency/catalog";
 import { roundToCurrency } from "./currency/decimal";
+import { uiLang } from "./locale";
 import type { EstadoDisponible } from "./insights";
 
 export interface SaldoDisponible {
@@ -38,6 +39,7 @@ export function saldoDisponible(
   moneda: string,
 ): SaldoDisponible {
   const digits = currencyDigits(moneda);
+  const en = uiLang() === "en";
   let saldoInicial = 0;
   let tieneSaldo = false;
   let ajustes = 0;
@@ -92,7 +94,9 @@ export function saldoDisponible(
       ...base,
       estado: "incompleto",
       monto: null,
-      motivo: `${n} importe(s) en otra moneda no tienen cotización válida. Sin ellos el saldo podría estar sobrestimado, así que no lo calculamos.`,
+      motivo: en
+        ? `${n} amount(s) in another currency do not have a valid quote. Without them the balance could be overestimated, so we do not calculate it.`
+        : `${n} importe(s) en otra moneda no tienen cotización válida. Sin ellos el saldo podría estar sobrestimado, así que no lo calculamos.`,
     };
   }
   if (!tieneDatos) {
@@ -100,14 +104,21 @@ export function saldoDisponible(
       ...base,
       estado: "sin_datos",
       monto: null,
-      motivo: "Aún no registras saldo inicial, ajustes ni movimientos.",
+      motivo: en
+        ? "You have not recorded an opening balance, adjustments, or movements yet."
+        : "Aún no registras saldo inicial, ajustes ni movimientos.",
     };
   }
 
   const total = roundToCurrency((tieneSaldo ? saldoInicial : 0) + ajustes + neto, digits);
   const estado: EstadoDisponible = pendientesIngresos > 0 ? "parcial" : "determinado";
-  const motivo =
-    pendientesIngresos > 0
+  const motivo = en
+    ? pendientesIngresos > 0
+      ? `Conservative estimate: ${pendientesIngresos} income item(s) without a valid quote are not counted.`
+      : total > 0
+        ? "Opening balance + adjustments + recorded movements. It is not your bank balance."
+        : "Movements and adjustments equal or exceed the opening balance: there is no surplus to distribute."
+    : pendientesIngresos > 0
       ? `Estimación conservadora: ${pendientesIngresos} ingreso(s) sin cotización válida no se cuentan.`
       : total > 0
         ? "Saldo de apertura + ajustes + movimientos registrados. No es tu saldo bancario."

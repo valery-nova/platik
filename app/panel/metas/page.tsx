@@ -21,8 +21,12 @@ import { formatFecha, formatMoney, formatPct } from "@/lib/format";
 import { currencyDigits, currencyStep, listCurrencies } from "@/lib/currency/catalog";
 import { roundToCurrency } from "@/lib/currency/decimal";
 import type { Goal } from "@/lib/types";
-import { StellarAhorro } from "@/components/stellar-ahorro";
+import { usdcConfirmadoPorMeta } from "@/lib/stellar/deposits";
 import { EquivalenciaSecundaria } from "@/components/equivalencia";
+
+function formatUsdcLocal(n: number): string {
+  return String(parseFloat(n.toFixed(7)));
+}
 
 interface GoalFormState {
   nombre: string;
@@ -192,9 +196,10 @@ export default function MetasPage() {
         <Coins size={20} className="mt-0.5 shrink-0 text-lavanda-600" />
         <p className="text-sm text-tinta-suave">
           Las metas en tu moneda son <strong>registros internos de PLATIK</strong>{" "}
-          para planificar tu ahorro. Los aportes en USDC de prueba se envían de
-          verdad a Stellar Testnet desde tu wallet en la sección{" "}
-          <strong>Ahorro on-chain</strong> (sin valor monetario real).
+          para planificar tu ahorro (clasificación contable). Los depósitos USDC
+          de prueba se reciben y verifican en tu wallet desde la sección{" "}
+          <a href="/panel/billetera" className="font-medium text-petroleo underline">Billetera</a>{" "}
+          (sin valor monetario real).
         </p>
       </Card>
 
@@ -257,6 +262,14 @@ export default function MetasPage() {
                     {formatPct(pct, 0)}
                   </p>
                 </div>
+                {(() => {
+                  const usdc = usdcConfirmadoPorMeta(data.depositosUsdc, g.id);
+                  return usdc > 0 ? (
+                    <p className="mt-2 text-xs text-tinta-suave">
+                      USDC confirmados en Testnet: {formatUsdcLocal(usdc)} USDC
+                    </p>
+                  ) : null;
+                })()}
                 <div className="mt-auto flex items-center gap-2 pt-4">
                   <Button
                     variant="outline"
@@ -291,8 +304,6 @@ export default function MetasPage() {
           })}
         </div>
       )}
-
-      <StellarAhorro />
 
       {/* Modal nueva / editar meta */}
       <Modal

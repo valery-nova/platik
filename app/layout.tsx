@@ -3,6 +3,9 @@ import { Montserrat } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { PreferencesProvider } from "@/lib/preferences";
+import { I18nTranslator } from "@/components/i18n-translator";
+import "@pollar/react/styles.css";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -13,7 +16,7 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   title: "PLATIK — Tu copiloto financiero con IA",
   description:
-    "PLATIK ayuda a emprendedores y pequeños negocios a entender su dinero, controlar ingresos y gastos y ahorrar en dólares digitales.",
+    "PLATIK ayuda a personas y negocios a entender su dinero, controlar ingresos y gastos y ahorrar en dólares digitales.",
 };
 
 export default function RootLayout({
@@ -22,12 +25,21 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={montserrat.variable}>
+    <html lang="es" suppressHydrationWarning className={montserrat.variable}>
       <body className="min-h-screen">
-        <AnalyticsTracker />
-        {children}
-        <Analytics />
-        <SpeedInsights />
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('platik:theme:v1');if(t==='dark'){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark'}localStorage.getItem('platik:lang:v1')}catch(e){}",
+          }}
+        />
+        <PreferencesProvider>
+          <I18nTranslator />
+          <AnalyticsTracker />
+          {children}
+          <Analytics />
+          <SpeedInsights />
+        </PreferencesProvider>
       </body>
     </html>
   );

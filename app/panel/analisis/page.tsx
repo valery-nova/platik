@@ -18,6 +18,7 @@ import {
   hoyISO,
 } from "@/lib/finance";
 import { formatMoney, formatPct } from "@/lib/format";
+import { uiLang } from "@/lib/locale";
 import {
   diagnostico,
   MIN_MOVIMIENTOS_PERIODO,
@@ -249,7 +250,11 @@ export default function AnalisisPage() {
           {
             titulo: "Margen de ganancia",
             valor: margen === null ? "—" : formatPct(margen),
-            sub: margen === null ? "sin ingresos en el periodo" : `ganancia por cada ${moneda} 100 vendidos`,
+            sub: margen === null
+              ? "sin ingresos en el periodo"
+              : uiLang() === "en"
+                ? `profit per ${moneda} 100 sold`
+                : `ganancia por cada ${moneda} 100 vendidos`,
             icon: <Info size={18} />,
             cls: "text-petroleo",
           },

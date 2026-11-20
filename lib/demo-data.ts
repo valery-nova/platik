@@ -48,6 +48,7 @@ export function buildEmptyData(): PlatikData {
     openingBalance: null,
     balanceAdjustments: [],
     aportesStellar: [],
+    depositosUsdc: [],
   };
 }
 
@@ -143,5 +144,6 @@ export function buildDemoData(): PlatikData {
     openingBalance: null,
     balanceAdjustments: [],
     aportesStellar: [],
+    depositosUsdc: [],
   };
 }

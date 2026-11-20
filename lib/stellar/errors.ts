@@ -13,6 +13,7 @@ export type StellarErrorCode =
   | "trustline_missing"
   | "insufficient_balance"
   | "recipient_not_configured"
+  | "invalid_destination"
   | "invalid_amount"
   | "horizon_error"
   | "transaction_failed"
@@ -102,6 +103,16 @@ export class RecipientNotConfiguredError extends StellarError {
       "Falta configurar la dirección receptora de Testnet (NEXT_PUBLIC_STELLAR_TESTNET_RECIPIENT).",
     );
     this.name = "RecipientNotConfiguredError";
+  }
+}
+
+export class InvalidDestinationError extends StellarError {
+  constructor() {
+    super(
+      "invalid_destination",
+      "La dirección de destino no es una dirección pública válida de Stellar (G...).",
+    );
+    this.name = "InvalidDestinationError";
   }
 }
 

@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* PLATIK — identidad oficial */
   --color-petroleo: #0b3d3b;
@@ -28,6 +30,11 @@
   --color-tinta: #12312f;
   --color-tinta-suave: #4c6a67;
 
+  --color-fondo: var(--color-marfil);
+  --color-superficie: #ffffff;
+  --color-tinta-fuerte: var(--color-tinta);
+  --color-tinta-media: var(--color-tinta-suave);
+
   --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", sans-serif;
 }
@@ -37,6 +44,123 @@ body {
   color: var(--color-tinta);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Tema oscuro PLATIK: invierte superficies y textos manteniendo la identidad. */
+html.dark {
+  color-scheme: dark;
+  --color-fondo: #0b3d3b;
+  --color-superficie: #0e4a47;
+  --color-tinta-fuerte: #eaf3f2;
+  --color-tinta-media: #b9d4d1;
+}
+
+html.dark body {
+  background: var(--color-fondo);
+  color: var(--color-tinta-fuerte);
+}
+
+html.dark .bg-white {
+  background-color: var(--color-superficie);
+}
+
+html.dark .bg-marfil {
+  background-color: var(--color-fondo);
+}
+
+html.dark [class*="bg-white/"] {
+  background-color: rgba(14, 74, 71, 0.88) !important;
+}
+
+html.dark [class*="bg-marfil/"] {
+  background-color: rgba(11, 61, 59, 0.88) !important;
+}
+
+html.dark .text-petroleo,
+html.dark .text-petroleo-800,
+html.dark .text-tinta {
+  color: var(--color-tinta-fuerte);
+}
+
+html.dark .text-tinta-suave {
+  color: var(--color-tinta-media);
+}
+
+html.dark .text-petroleo-600 {
+  color: #d7e8e6;
+}
+
+html.dark .bg-petroleo-50 {
+  background-color: #12312f;
+}
+
+html.dark .bg-menta-50,
+html.dark .bg-menta-100 {
+  background-color: #12312f;
+}
+
+html.dark .bg-coral-50,
+html.dark .bg-coral-100 {
+  background-color: #2b1a1c;
+}
+
+html.dark .bg-lavanda-50,
+html.dark .bg-lavanda-100 {
+  background-color: #241f33;
+}
+
+html.dark [class*="border-petroleo/"] {
+  border-color: rgba(234, 243, 242, 0.14) !important;
+}
+
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #0b3d3b;
+  color: #eaf3f2;
+  border-color: rgba(234, 243, 242, 0.18);
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #8fb0ad;
+}
+
+html.dark .shadow-\[0_1px_3px_rgba\(11\,61\,59\,0\.06\)\] {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+html.dark .bg-menta.text-petroleo {
+  color: #0b3d3b;
+}
+
+/* Botones primarios oscuros pasan a menta para mantener contraste. */
+html.dark .bg-petroleo.text-white:not([class*="text-2xl"]):not([class*="text-3xl"]):not([class*="text-4xl"]),
+html.dark .bg-petroleo-800.text-white:not([class*="text-2xl"]):not([class*="text-3xl"]):not([class*="text-4xl"]) {
+  background-color: #4fd1a3;
+  color: #0b3d3b;
+}
+
+html.dark .hover\:bg-petroleo:hover:not([class*="text-2xl"]):not([class*="text-3xl"]):not([class*="text-4xl"]),
+html.dark .hover\:bg-petroleo-800:hover:not([class*="text-2xl"]):not([class*="text-3xl"]):not([class*="text-4xl"]) {
+  background-color: #35b183;
+}
+
+/* Tablas y listas: filas alternas legibles. */
+html.dark table tbody tr:nth-child(even) {
+  background-color: rgba(234, 243, 242, 0.03);
+}
+
+.logo-dark {
+  display: none;
+}
+
+.dark .logo-light {
+  display: none;
+}
+
+.dark .logo-dark {
+  display: block;
 }
 
 @keyframes platik-fade-up {
@@ -81,4 +205,51 @@ body {
 
 .anim-float {
   animation: platik-float 5s ease-in-out infinite;
+}
+
+/* Pollar: marca PLATIK y ajustes responsive del modal de login. */
+.pollar-overlay {
+  background-color: rgba(11, 61, 59, 0.48);
+}
+
+.pollar-modal.pollar-modal-card {
+  max-width: 430px;
+  --pollar-modal-padding: 1.75rem;
+}
+
+.pollar-modal .pollar-logo {
+  height: 3rem;
+  width: 3rem;
+  filter: none;
+}
+
+.pollar-modal .pollar-subtitle,
+.pollar-modal .pollar-footer {
+  display: none;
+}
+
+.pollar-modal .pollar-title {
+  letter-spacing: -0.02em;
+}
+
+@media (max-width: 480px) {
+  .pollar-overlay {
+    padding: 0.5rem;
+  }
+
+  .pollar-modal.pollar-modal-card {
+    max-width: 100%;
+    max-height: calc(100dvh - 1rem);
+    --pollar-modal-padding: 1.25rem;
+    border-radius: 20px 20px 14px 14px;
+  }
+
+  .pollar-modal .pollar-logo {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+
+  .pollar-modal .pollar-title {
+    font-size: 1.2rem;
+  }
 }
