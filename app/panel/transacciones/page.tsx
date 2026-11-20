@@ -316,10 +316,9 @@ export default function TransaccionesPage() {
       .filter((t) => (!filtroDesde || t.fecha >= filtroDesde) && (!filtroHasta || t.fecha <= filtroHasta))
       .filter((t) => {
         if (!q) return true;
-        const texto = [t.descripcion, t.categoria, tr(t.descripcion), tr(t.categoria)]
-          .join(" ")
-          .toLowerCase();
-        return texto.includes(q);
+        return [t.descripcion, t.categoria, tr(t.descripcion), tr(t.categoria)].some((v) =>
+          v.toLowerCase().includes(q),
+        );
       });
   }, [data.transactions, filtroTipo, filtroCategoria, filtroMes, filtroAnio, filtroDesde, filtroHasta, busqueda, tr]);
 
