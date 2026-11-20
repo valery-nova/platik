@@ -20,19 +20,28 @@ import type {
 import { buildEmptyData } from "./demo-data";
 import {
   dataKeyForMode,
+  dataKeyForSpace,
   defaultPlatikData,
   LEGACY_KEY,
+  MAX_VENTURES,
   MODE_KEY,
+  PERSONAL_SPACE,
   readMode,
   readPlatik,
+  readSpaces,
   SCHEMA_VERSION,
+  spacesKeyForMode,
   writeMode,
   writePlatik,
+  writeSpaces,
   type PlatikMode,
+  type SpacesState,
+  type VentureSpace,
+  type VentureType,
 } from "./storage";
 
 type Action =
-  | { type: "hydrate"; mode: PlatikMode; data: PlatikData; customized: boolean }
+  | { type: "hydrate"; state: Loaded }
   | { type: "tx/add"; tx: Transaction }
   | { type: "tx/update"; tx: Transaction }
   | { type: "tx/delete"; id: string }
@@ -40,24 +49,26 @@ type Action =
   | { type: "goal/update"; goal: Goal }
   | { type: "goal/delete"; id: string }
   | { type: "goal/aporte"; id: string; monto: number }
-  | { type: "profile/update"; mode: PlatikMode; profile: Profile }
+  | { type: "profile/update"; profile: Profile }
   | { type: "distribution/update"; distribution: DistributionCategory[] }
-  | { type: "openingBalance/set"; mode: PlatikMode; openingBalance: OpeningBalance | null }
-  | { type: "balanceAdjustment/add"; mode: PlatikMode; adjustment: BalanceAdjustment }
+  | { type: "openingBalance/set"; openingBalance: OpeningBalance | null }
+  | { type: "balanceAdjustment/add"; adjustment: BalanceAdjustment }
   | { type: "balanceAdjustment/delete"; id: string }
-  | { type: "balanceAdjustment/update"; mode: PlatikMode; adjustment: BalanceAdjustment }
-  | { type: "aporteStellar/upsert"; aporte: AporteStellar; mode?: PlatikMode }
+  | { type: "balanceAdjustment/update"; adjustment: BalanceAdjustment }
+  | { type: "aporteStellar/upsert"; aporte: AporteStellar }
   | { type: "aporteStellar/delete"; id: string }
-  | { type: "depositoUsdc/upsert"; deposito: DepositoUsdc; mode?: PlatikMode }
+  | { type: "depositoUsdc/upsert"; deposito: DepositoUsdc }
   | { type: "depositoUsdc/delete"; id: string }
-  | { type: "reset"; mode: PlatikMode };
+  | { type: "reset" };
 
-interface State {
+interface Loaded {
   mode: PlatikMode;
+  spaces: SpacesState;
   data: PlatikData;
-  /** true si el usuario ya modificó los datos del modo activo. */
   customized: boolean;
 }
+
+type State = Loaded;
 
 function withData(state: State, data: Partial<PlatikData>): State {
   return { ...state, data: { ...state.data, ...data }, customized: true };
@@ -66,11 +77,9 @@ function withData(state: State, data: Partial<PlatikData>): State {
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "hydrate":
-      return { mode: action.mode, data: action.data, customized: action.customized };
+      return action.state;
     case "tx/add":
-      return withData(state, {
-        transactions: [action.tx, ...state.data.transactions],
-      });
+      return withData(state, { transactions: [action.tx, ...state.data.transactions] });
     case "tx/update":
       return withData(state, {
         transactions: state.data.transactions.map((t) =>
@@ -94,39 +103,30 @@ function reducer(state: State, action: Action): State {
     case "goal/aporte":
       return withData(state, {
         goals: state.data.goals.map((g) =>
-          g.id === action.id
-            ? { ...g, ahorroAcumulado: g.ahorroAcumulado + action.monto }
-            : g,
+          g.id === action.id ? { ...g, ahorroAcumulado: g.ahorroAcumulado + action.monto } : g,
         ),
       });
     case "profile/update":
-      if (action.mode !== state.mode) return state;
       return withData(state, { profile: action.profile });
     case "distribution/update":
       return withData(state, { distribution: action.distribution });
     case "openingBalance/set":
-      if (action.mode !== state.mode) return state;
       return withData(state, { openingBalance: action.openingBalance });
     case "balanceAdjustment/add":
-      if (action.mode !== state.mode) return state;
       return withData(state, {
         balanceAdjustments: [action.adjustment, ...state.data.balanceAdjustments],
       });
     case "balanceAdjustment/delete":
       return withData(state, {
-        balanceAdjustments: state.data.balanceAdjustments.filter(
-          (a) => a.id !== action.id,
-        ),
+        balanceAdjustments: state.data.balanceAdjustments.filter((a) => a.id !== action.id),
       });
     case "balanceAdjustment/update":
-      if (action.mode !== state.mode) return state;
       return withData(state, {
         balanceAdjustments: state.data.balanceAdjustments.map((a) =>
           a.id === action.adjustment.id ? action.adjustment : a,
         ),
       });
     case "aporteStellar/upsert":
-      if (action.mode && action.mode !== state.mode) return state;
       return withData(state, {
         aportesStellar: state.data.aportesStellar.some((a) => a.id === action.aporte.id)
           ? state.data.aportesStellar.map((a) =>
@@ -139,7 +139,6 @@ function reducer(state: State, action: Action): State {
         aportesStellar: state.data.aportesStellar.filter((a) => a.id !== action.id),
       });
     case "depositoUsdc/upsert":
-      if (action.mode && action.mode !== state.mode) return state;
       return withData(state, {
         depositosUsdc: state.data.depositosUsdc.some((d) => d.id === action.deposito.id)
           ? state.data.depositosUsdc.map((d) =>
@@ -153,8 +152,8 @@ function reducer(state: State, action: Action): State {
       });
     case "reset":
       return {
-        mode: action.mode,
-        data: defaultPlatikData(action.mode),
+        ...state,
+        data: defaultPlatikData(state.mode),
         customized: false,
       };
     default:
@@ -165,9 +164,19 @@ function reducer(state: State, action: Action): State {
 interface Store {
   mode: PlatikMode;
   data: PlatikData;
+  spaces: SpacesState;
+  ventures: VentureSpace[];
+  activeSpaceId: string;
+  activeSpaceName: string;
+  activeSpaceType: "personal" | VentureType;
+  canCreateVenture: boolean;
   hydrated: boolean;
   switchMode: (mode: PlatikMode) => void;
   resetCurrent: () => void;
+  selectSpace: (spaceId: string) => void;
+  createVenture: (nombre: string, tipo: VentureType) => boolean;
+  renameVenture: (id: string, nombre: string) => void;
+  deleteVenture: (id: string) => void;
   addTransaction: (tx: Omit<Transaction, "id">) => void;
   updateTransaction: (tx: Transaction) => void;
   deleteTransaction: (id: string) => void;
@@ -181,15 +190,13 @@ interface Store {
   addBalanceAdjustment: (adjustment: Omit<BalanceAdjustment, "id">) => void;
   deleteBalanceAdjustment: (id: string) => void;
   updateBalanceAdjustment: (adjustment: BalanceAdjustment) => void;
-  upsertAporteStellar: (aporte: AporteStellar, mode?: PlatikMode) => void;
+  upsertAporteStellar: (aporte: AporteStellar) => void;
   deleteAporteStellar: (id: string) => void;
-  upsertDepositoUsdc: (deposito: DepositoUsdc, mode?: PlatikMode) => void;
+  upsertDepositoUsdc: (deposito: DepositoUsdc) => void;
   deleteDepositoUsdc: (id: string) => void;
 }
 
 const PlatikContext = createContext<Store | null>(null);
-
-const INITIAL_STATE: State = { mode: "demo", data: buildEmptyData(), customized: false };
 
 function newId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -197,75 +204,184 @@ function newId() {
     : `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function loadStateForMode(mode: PlatikMode): State {
+/** Carga el espacio indicado (o el último usado del modo) dentro de su modalidad. */
+function loadSpace(mode: PlatikMode, spaceId: string): Loaded {
   const storage = window.localStorage;
-  const stored = readPlatik(storage, mode);
-  if (mode === "demo") {
-    // La demo no personalizada se regenera con fechas recientes; una copia
-    // modificada por el usuario (customized) se respeta hasta restablecerla.
-    if (stored?.customized) {
-      return { mode, data: stored.data, customized: true };
-    }
-    return { mode, data: defaultPlatikData("demo"), customized: false };
+  let spaces = readSpaces(storage, mode);
+  if (!spaces.ventures.some((v) => v.id === spaces.active) && spaces.active !== PERSONAL_SPACE) {
+    spaces = { ...spaces, active: PERSONAL_SPACE };
   }
-  if (stored) return { mode, data: stored.data, customized: stored.customized };
-  return { mode, data: defaultPlatikData("beta"), customized: false };
+  const validId = spaceId === PERSONAL_SPACE || spaces.ventures.some((v) => v.id === spaceId)
+    ? spaceId
+    : spaces.active;
+  spaces = { ...spaces, active: validId };
+
+  const stored = readPlatik(storage, mode, validId);
+  let data: PlatikData;
+  let customized = false;
+  if (validId !== PERSONAL_SPACE && !stored) {
+    const personalProfile = readPlatik(storage, mode, PERSONAL_SPACE)?.data.profile ?? defaultPlatikData(mode).profile;
+    data = seedVentureData({ ...defaultPlatikData(mode), profile: personalProfile },
+      spaces.ventures.find((v) => v.id === validId)?.nombre ?? "Mi emprendimiento",
+    );
+  } else if (stored) {
+    data = stored.data;
+    customized = stored.customized;
+    if (mode === "demo" && validId === PERSONAL_SPACE && !customized) {
+      // La demo no personalizada se regenera con fechas recientes.
+      data = defaultPlatikData("demo");
+      customized = false;
+    }
+  } else {
+    data = defaultPlatikData(mode);
+  }
+  return { mode, spaces, data, customized };
 }
 
+function loadMode(mode: PlatikMode): Loaded {
+  return loadSpace(mode, readSpaces(window.localStorage, mode).active);
+}
+
+function seedVentureData(base: PlatikData, nombre: string): PlatikData {
+  return {
+    ...base,
+    transactions: [],
+    goals: [],
+    openingBalance: null,
+    balanceAdjustments: [],
+    aportesStellar: [],
+    depositosUsdc: [],
+    profile: {
+      ...base.profile,
+      nombreNegocio: nombre,
+      onboardingDone: true,
+      betaSetupDone: true,
+    },
+  };
+}
+
+const INITIAL: State = {
+  mode: "demo",
+  spaces: { active: PERSONAL_SPACE, ventures: [] },
+  data: buildEmptyData(),
+  customized: false,
+};
+
 export function PlatikProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [state, dispatch] = useReducer(reducer, INITIAL);
   const [hydrated, setHydrated] = useReducer(() => true, false);
 
   useEffect(() => {
     try {
-      dispatch({ type: "hydrate", ...loadStateForMode(readMode(window.localStorage)) });
+      dispatch({ type: "hydrate", state: loadMode(readMode(window.localStorage)) });
     } catch {
-      dispatch({ type: "hydrate", mode: "demo", data: defaultPlatikData("demo"), customized: false });
+      dispatch({ type: "hydrate", state: { ...INITIAL, data: defaultPlatikData("demo") } });
     }
     setHydrated();
+    // Solo al montar: el estado se hidrata una vez desde localStorage.
   }, []);
 
-  // Sincroniza con otras pestañas: cualquier cambio en las claves de PLATIK
-  // recarga el estado del modo activo (evita mezclas entre modalidades).
-  useEffect(() => {
-    if (!hydrated) return;
-    const onStorage = (e: StorageEvent) => {
-      if (!e.key) return;
-      if (e.key === MODE_KEY || e.key === LEGACY_KEY || e.key === dataKeyForMode(state.mode)) {
-        window.location.reload();
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [hydrated, state.mode]);
-
+  // Persistencia: el espacio activo se guarda en su propia clave; los
+  // emprendimientos se registran en la clave de espacios del modo.
   useEffect(() => {
     if (!hydrated) return;
     try {
-      writePlatik(window.localStorage, state.mode, {
-        version: SCHEMA_VERSION,
-        data: state.data,
-        customized: state.customized,
-      });
+      writePlatik(
+        window.localStorage,
+        state.mode,
+        { version: SCHEMA_VERSION, data: state.data, customized: state.customized },
+        state.spaces.active,
+      );
+      writeSpaces(window.localStorage, state.mode, state.spaces);
     } catch {
       // Sin almacenamiento: la sesión sigue en memoria.
     }
   }, [state, hydrated]);
 
-  const store = useMemo<Store>(
-    () => ({
+  // Sincroniza con otras pestañas.
+  useEffect(() => {
+    if (!hydrated) return;
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key) return;
+      const relevant = [
+        MODE_KEY,
+        LEGACY_KEY,
+        dataKeyForMode(state.mode),
+        spacesKeyForMode(state.mode),
+        dataKeyForSpace(state.mode, state.spaces.active),
+      ];
+      if (relevant.includes(e.key)) window.location.reload();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [hydrated, state.mode, state.spaces.active]);
+
+  const store = useMemo<Store>(() => {
+    const activeVenture = state.spaces.ventures.find((v) => v.id === state.spaces.active);
+    const go = (next: Loaded) => {
+      writeSpaces(window.localStorage, next.mode, next.spaces);
+      writePlatik(
+        window.localStorage,
+        next.mode,
+        { version: SCHEMA_VERSION, data: next.data, customized: next.customized },
+        next.spaces.active,
+      );
+      dispatch({ type: "hydrate", state: next });
+    };
+    return {
       mode: state.mode,
       data: state.data,
+      spaces: state.spaces,
+      ventures: state.spaces.ventures,
+      activeSpaceId: state.spaces.active,
+      activeSpaceName: activeVenture?.nombre ?? "Personal",
+      activeSpaceType: activeVenture?.tipo ?? "personal",
+      canCreateVenture: state.spaces.ventures.length < MAX_VENTURES,
       hydrated,
       switchMode: (mode) => {
         try {
           writeMode(window.localStorage, mode);
-          dispatch({ type: "hydrate", ...loadStateForMode(mode) });
+          go(loadMode(mode));
         } catch {
-          dispatch({ type: "hydrate", mode, data: defaultPlatikData(mode), customized: false });
+          go({ mode, spaces: { active: PERSONAL_SPACE, ventures: [] }, data: defaultPlatikData(mode), customized: false });
         }
       },
-      resetCurrent: () => dispatch({ type: "reset", mode: state.mode }),
+      resetCurrent: () => dispatch({ type: "reset" }),
+      selectSpace: (spaceId) => go(loadSpace(state.mode, spaceId)),
+      createVenture: (nombre, tipo) => {
+        if (state.spaces.ventures.length >= MAX_VENTURES) return false;
+        const clean = nombre.trim().slice(0, 60);
+        if (clean.length < 2) return false;
+        const id = `v-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+        const venture: VentureSpace = { id, nombre: clean, tipo };
+        const spaces = { active: id, ventures: [...state.spaces.ventures, venture] };
+        const data = seedVentureData(state.data, clean);
+        go({ mode: state.mode, spaces, data, customized: false });
+        return true;
+      },
+      renameVenture: (id, nombre) => {
+        const clean = nombre.trim().slice(0, 60);
+        if (clean.length < 2) return;
+        const spaces = {
+          ...state.spaces,
+          ventures: state.spaces.ventures.map((v) => (v.id === id ? { ...v, nombre: clean } : v)),
+        };
+        writeSpaces(window.localStorage, state.mode, spaces);
+        dispatch({ type: "hydrate", state: { ...state, spaces } });
+      },
+      deleteVenture: (id) => {
+        if (!state.spaces.ventures.some((v) => v.id === id)) return;
+        const spaces: SpacesState = {
+          active: state.spaces.active === id ? PERSONAL_SPACE : state.spaces.active,
+          ventures: state.spaces.ventures.filter((v) => v.id !== id),
+        };
+        try {
+          window.localStorage.removeItem(dataKeyForSpace(state.mode, id));
+        } catch {
+          // noop
+        }
+        go(loadSpace(state.mode, spaces.active));
+      },
       addTransaction: (tx) => dispatch({ type: "tx/add", tx: { ...tx, id: newId() } }),
       updateTransaction: (tx) => dispatch({ type: "tx/update", tx }),
       deleteTransaction: (id) => dispatch({ type: "tx/delete", id }),
@@ -273,33 +389,27 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
       updateGoal: (goal) => dispatch({ type: "goal/update", goal }),
       deleteGoal: (id) => dispatch({ type: "goal/delete", id }),
       addAporte: (id, monto) => dispatch({ type: "goal/aporte", id, monto }),
-      updateProfile: (profile) => dispatch({ type: "profile/update", mode: state.mode, profile }),
-      updateDistribution: (distribution) =>
-        dispatch({ type: "distribution/update", distribution }),
+      updateProfile: (profile) => dispatch({ type: "profile/update", profile }),
+      updateDistribution: (distribution) => dispatch({ type: "distribution/update", distribution }),
       setOpeningBalance: (opening) =>
         dispatch({
           type: "openingBalance/set",
-          mode: state.mode,
           openingBalance: opening ? { ...opening, id: newId() } : null,
         }),
       addBalanceAdjustment: (adjustment) =>
         dispatch({
           type: "balanceAdjustment/add",
-          mode: state.mode,
           adjustment: { ...adjustment, id: newId() },
         }),
       updateBalanceAdjustment: (adjustment) =>
-        dispatch({ type: "balanceAdjustment/update", mode: state.mode, adjustment }),
+        dispatch({ type: "balanceAdjustment/update", adjustment }),
       deleteBalanceAdjustment: (id) => dispatch({ type: "balanceAdjustment/delete", id }),
-      upsertAporteStellar: (aporte, mode) =>
-        dispatch({ type: "aporteStellar/upsert", aporte, mode: mode ?? state.mode }),
+      upsertAporteStellar: (aporte) => dispatch({ type: "aporteStellar/upsert", aporte }),
       deleteAporteStellar: (id) => dispatch({ type: "aporteStellar/delete", id }),
-      upsertDepositoUsdc: (deposito, mode) =>
-        dispatch({ type: "depositoUsdc/upsert", deposito, mode: mode ?? state.mode }),
+      upsertDepositoUsdc: (deposito) => dispatch({ type: "depositoUsdc/upsert", deposito }),
       deleteDepositoUsdc: (id) => dispatch({ type: "depositoUsdc/delete", id }),
-    }),
-    [state, hydrated],
-  );
+    };
+  }, [state, hydrated]);
 
   return <PlatikContext.Provider value={store}>{children}</PlatikContext.Provider>;
 }

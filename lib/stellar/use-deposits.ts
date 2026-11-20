@@ -10,7 +10,7 @@ import type { DepositoUsdc } from "./types";
 import { syncDepositsUsdc } from "./deposits";
 
 export function useUsdcDeposits(address: string | null | undefined) {
-  const { data, upsertDepositoUsdc, mode } = usePlatik();
+  const { data, upsertDepositoUsdc } = usePlatik();
   const depositsRef = useRef(data.depositosUsdc);
   const upsertRef = useRef(upsertDepositoUsdc);
 
@@ -26,12 +26,11 @@ export function useUsdcDeposits(address: string | null | undefined) {
     async (defaultGoalId?: string): Promise<DepositoUsdc[]> => {
       if (!address) return [];
       const current = depositsRef.current.filter((d) => d.walletAddress === address);
-      const activeMode = mode;
       const synced = await syncDepositsUsdc(address, current, defaultGoalId);
-      for (const d of synced) upsertRef.current(d, activeMode);
+      for (const d of synced) upsertRef.current(d);
       return synced;
     },
-    [address, mode],
+    [address],
   );
 
   useEffect(() => {

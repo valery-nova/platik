@@ -31,6 +31,73 @@ export function dataKeyForMode(mode: PlatikMode): string {
   return mode === "demo" ? DEMO_KEY : BETA_KEY;
 }
 
+/** Espacio personal: usa la clave histórica del modo (compatibilidad total). */
+export const PERSONAL_SPACE = "personal";
+export const MAX_VENTURES = 2;
+
+export type VentureType = "emprendimiento" | "negocio" | "freelance";
+
+export interface VentureSpace {
+  id: string;
+  nombre: string;
+  tipo: VentureType;
+}
+
+export interface SpacesState {
+  /** Espacio activo: PERSONAL_SPACE o el id de un emprendimiento. */
+  active: string;
+  ventures: VentureSpace[];
+}
+
+const VENTURE_TYPES = new Set<VentureType>(["emprendimiento", "negocio", "freelance"]);
+
+export function spacesKeyForMode(mode: PlatikMode): string {
+  return `platik:spaces:${mode}:v1`;
+}
+
+/** Clave de datos de un espacio; el personal conserva la clave original. */
+export function dataKeyForSpace(mode: PlatikMode, spaceId: string = PERSONAL_SPACE): string {
+  return spaceId === PERSONAL_SPACE
+    ? dataKeyForMode(mode)
+    : `${dataKeyForMode(mode)}:space:${spaceId}`;
+}
+
+export function readSpaces(storage: StorageLike, mode: PlatikMode): SpacesState {
+  try {
+    const raw = storage.getItem(spacesKeyForMode(mode));
+    if (!raw) return { active: PERSONAL_SPACE, ventures: [] };
+    const parsed = JSON.parse(raw) as Partial<SpacesState>;
+    const ventures = Array.isArray(parsed.ventures)
+      ? parsed.ventures
+          .filter(
+            (v): v is VentureSpace =>
+              !!v &&
+              typeof v.id === "string" &&
+              /^[a-zA-Z0-9-]{1,64}$/.test(v.id) &&
+              v.id !== PERSONAL_SPACE &&
+              typeof v.nombre === "string" &&
+              VENTURE_TYPES.has(v.tipo),
+          )
+          .slice(0, MAX_VENTURES)
+      : [];
+    const active =
+      typeof parsed.active === "string" && ventures.some((v) => v.id === parsed.active)
+        ? parsed.active
+        : PERSONAL_SPACE;
+    return { active, ventures };
+  } catch {
+    return { active: PERSONAL_SPACE, ventures: [] };
+  }
+}
+
+export function writeSpaces(storage: StorageLike, mode: PlatikMode, spaces: SpacesState): void {
+  try {
+    storage.setItem(spacesKeyForMode(mode), JSON.stringify(spaces));
+  } catch {
+    // noop
+  }
+}
+
 export function defaultPlatikData(mode: PlatikMode): PlatikData {
   return mode === "demo" ? buildDemoData() : buildEmptyData();
 }
@@ -138,17 +205,26 @@ function parseStored(raw: string | null): StoredPlatik | null {
 }
 
 /** Lee los datos de un modo; para demo incluye el legado platik:data:v1. */
-export function readPlatik(storage: StorageLike, mode: PlatikMode): StoredPlatik | null {
-  const own = parseStored(storage.getItem(dataKeyForMode(mode)));
+export function readPlatik(
+  storage: StorageLike,
+  mode: PlatikMode,
+  spaceId: string = PERSONAL_SPACE,
+): StoredPlatik | null {
+  const own = parseStored(storage.getItem(dataKeyForSpace(mode, spaceId)));
   if (own) return own;
-  if (mode === "demo") return parseStored(storage.getItem(LEGACY_KEY));
+  if (mode === "demo" && spaceId === PERSONAL_SPACE) return parseStored(storage.getItem(LEGACY_KEY));
   return null;
 }
 
-export function writePlatik(storage: StorageLike, mode: PlatikMode, state: StoredPlatik): void {
+export function writePlatik(
+  storage: StorageLike,
+  mode: PlatikMode,
+  state: StoredPlatik,
+  spaceId: string = PERSONAL_SPACE,
+): void {
   try {
     storage.setItem(
-      dataKeyForMode(mode),
+      dataKeyForSpace(mode, spaceId),
       JSON.stringify({ version: SCHEMA_VERSION, data: state.data, customized: state.customized }),
     );
   } catch {
@@ -156,9 +232,13 @@ export function writePlatik(storage: StorageLike, mode: PlatikMode, state: Store
   }
 }
 
-export function clearPlatik(storage: StorageLike, mode: PlatikMode): void {
+export function clearPlatik(
+  storage: StorageLike,
+  mode: PlatikMode,
+  spaceId: string = PERSONAL_SPACE,
+): void {
   try {
-    storage.removeItem(dataKeyForMode(mode));
+    storage.removeItem(dataKeyForSpace(mode, spaceId));
   } catch {
     // noop
   }

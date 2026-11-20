@@ -24,7 +24,7 @@ function fechaHora(iso?: string): string {
 }
 
 export function AportesStellarHistorial() {
-  const { data, hydrated, upsertAporteStellar, mode } = usePlatik();
+  const { data, hydrated, upsertAporteStellar } = usePlatik();
   const aportes = data.aportesStellar;
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const recuperado = useRef(false);
@@ -32,7 +32,6 @@ export function AportesStellarHistorial() {
   const reverificar = async (a: AporteStellar) => {
     if (!a.txHash) return;
     setCheckingId(a.id);
-    const activeMode = mode;
     try {
       const s = await getTransactionStatus(a.txHash);
       if (!s.found) return;
@@ -45,8 +44,7 @@ export function AportesStellarHistorial() {
           : transicionarAporteStellar(a, "fallida", {
               ledger: s.ledger ?? undefined,
               error: "Horizon registró la transacción como fallida.",
-            }),
-        activeMode,
+            })
       );
     } catch {
       // Sin red: se conserva el estado y se puede reintentar.
@@ -58,7 +56,6 @@ export function AportesStellarHistorial() {
   useEffect(() => {
     if (!hydrated || recuperado.current) return;
     recuperado.current = true;
-    const activeMode = mode;
     for (const a of aportes) {
       if (a.estado === "enviada" && a.txHash) {
         void getTransactionStatus(a.txHash)
@@ -73,8 +70,8 @@ export function AportesStellarHistorial() {
                 : transicionarAporteStellar(a, "fallida", {
                     ledger: s.ledger ?? undefined,
                     error: "Horizon registró la transacción como fallida.",
-                  }),
-              activeMode,
+                  })
+              
             );
           })
           .catch(() => undefined);
@@ -82,12 +79,11 @@ export function AportesStellarHistorial() {
         upsertAporteStellar(
           transicionarAporteStellar(a, "cancelada", {
             error: "Interrumpido antes de enviarse (la página se recargó o cerró).",
-          }),
-          activeMode,
+          })
         );
       }
     }
-  }, [aportes, upsertAporteStellar, hydrated, mode]);
+  }, [aportes, upsertAporteStellar, hydrated]);
 
   if (aportes.length === 0) return null;
   const goalNombre = (id: string) =>
