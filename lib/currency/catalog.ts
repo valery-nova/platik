@@ -13,6 +13,8 @@ import {
 
 export type { CountryInfo, CurrencyInfo };
 
+import { uiIntlLocale } from "../locale";
+
 const CURRENCIES_BY_CODE = new Map(CURRENCY_CATALOG.map((c) => [c.code, c]));
 const COUNTRIES_BY_CODE = new Map(COUNTRY_CATALOG.map((c) => [c.code, c]));
 
@@ -81,7 +83,7 @@ const countryDisplayNames = new Map<string, string>();
 
 function displayNames(type: "currency" | "region"): Intl.DisplayNames | null {
   try {
-    return new Intl.DisplayNames(["es"], { type });
+    return new Intl.DisplayNames([uiIntlLocale()], { type });
   } catch {
     return null;
   }
@@ -90,7 +92,8 @@ function displayNames(type: "currency" | "region"): Intl.DisplayNames | null {
 /** Nombre localizado (es) de la moneda; respaldo: nombre ISO en inglés. */
 export function currencyName(code: string): string {
   const key = code.toUpperCase();
-  const cached = currencyDisplayNames.get(key);
+  const cacheKey = `${uiIntlLocale()}|${key}`;
+  const cached = currencyDisplayNames.get(cacheKey);
   if (cached) return cached;
   const info = CURRENCIES_BY_CODE.get(key);
   let name = info?.name ?? key;
@@ -102,14 +105,15 @@ export function currencyName(code: string): string {
       // Intl no reconoce el código: se conserva el nombre del catálogo.
     }
   }
-  currencyDisplayNames.set(key, name);
+  currencyDisplayNames.set(cacheKey, name);
   return name;
 }
 
 /** Nombre localizado (es) del país; respaldo: el código alpha-2. */
 export function countryName(code: string): string {
   const key = code.toUpperCase();
-  const cached = countryDisplayNames.get(key);
+  const cacheKey = `${uiIntlLocale()}|${key}`;
+  const cached = countryDisplayNames.get(cacheKey);
   if (cached) return cached;
   let name = key;
   const dn = displayNames("region");
@@ -120,6 +124,6 @@ export function countryName(code: string): string {
       // Código no reconocido por Intl: se muestra el código.
     }
   }
-  countryDisplayNames.set(key, name);
+  countryDisplayNames.set(cacheKey, name);
   return name;
 }
