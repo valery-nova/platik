@@ -42,6 +42,21 @@ const TIPO_LABEL: Record<TxType, string> = {
   costo: "Costo",
 };
 
+const MESES = [
+  { value: "01", label: "Enero" },
+  { value: "02", label: "Febrero" },
+  { value: "03", label: "Marzo" },
+  { value: "04", label: "Abril" },
+  { value: "05", label: "Mayo" },
+  { value: "06", label: "Junio" },
+  { value: "07", label: "Julio" },
+  { value: "08", label: "Agosto" },
+  { value: "09", label: "Septiembre" },
+  { value: "10", label: "Octubre" },
+  { value: "11", label: "Noviembre" },
+  { value: "12", label: "Diciembre" },
+];
+
 interface FormState {
   tipo: TxType;
   monto: string;
@@ -107,15 +122,22 @@ function TransactionForm({
   submitLabel,
   onSubmit,
   onCancel,
+  customCategories,
 }: {
   initial: FormState;
   baseMoneda: string;
   submitLabel: string;
   onSubmit: (f: FormState) => void;
   onCancel: () => void;
+  customCategories: Record<TxType, string[]>;
 }) {
   const [form, setForm] = useState<FormState>(initial);
   const [error, setError] = useState("");
+  const [categoriaNueva, setCategoriaNueva] = useState("");
+  const opcionesCategoria = [
+    ...CATEGORIAS[form.tipo],
+    ...(customCategories[form.tipo] ?? []).filter((c) => !CATEGORIAS[form.tipo].includes(c)),
+  ];
 
   const montoNum = Number(form.monto);
   const valido =
@@ -136,7 +158,7 @@ function TransactionForm({
       );
       return;
     }
-    onSubmit(form);
+    onSubmit({ ...form, categoria: categoriaNueva.trim() || form.categoria });
   }
 
   return (
@@ -209,19 +231,28 @@ function TransactionForm({
         />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Categoría">
-          <Select
-            value={form.categoria}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, categoria: e.target.value }))
-            }
-          >
-            {CATEGORIAS[form.tipo].map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
+        <Field label="Categoría" hint="Elige una o escribe una categoría nueva; se guardará automáticamente.">
+          <div className="space-y-2">
+            <Select
+              value={form.categoria}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, categoria: e.target.value }))
+              }
+            >
+              {opcionesCategoria.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+            <Input
+              placeholder="O crea una categoría específica"
+              value={categoriaNueva}
+              onChange={(e) => setCategoriaNueva(e.target.value)}
+              maxLength={60}
+              aria-label="Nueva categoría"
+            />
+          </div>
         </Field>
         <Field label="Fecha">
           <Input
@@ -264,6 +295,10 @@ export default function TransaccionesPage() {
   const [filtroTipo, setFiltroTipo] = useState<"todos" | TxType>("todos");
   const [busqueda, setBusqueda] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [filtroMes, setFiltroMes] = useState("");
+  const [filtroAnio, setFiltroAnio] = useState("");
+  const [filtroDesde, setFiltroDesde] = useState("");
+  const [filtroHasta, setFiltroHasta] = useState("");
   const [modal, setModal] = useState<"nueva" | Transaction | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Transaction | null>(null);
   const [aviso, setAviso] = useState("");
@@ -274,18 +309,36 @@ export default function TransaccionesPage() {
       .sort((a, b) => b.fecha.localeCompare(a.fecha))
       .filter((t) => filtroTipo === "todos" || t.tipo === filtroTipo)
       .filter((t) => filtroCategoria === "todas" || t.categoria === filtroCategoria)
+      .filter((t) => !filtroMes || t.fecha.slice(5, 7) === filtroMes)
+      .filter((t) => !filtroAnio || t.fecha.slice(0, 4) === filtroAnio)
+      .filter((t) => (!filtroDesde || t.fecha >= filtroDesde) && (!filtroHasta || t.fecha <= filtroHasta))
       .filter(
         (t) =>
           !q ||
           t.descripcion.toLowerCase().includes(q) ||
           t.categoria.toLowerCase().includes(q),
       );
-  }, [data.transactions, filtroTipo, filtroCategoria, busqueda]);
+  }, [data.transactions, filtroTipo, filtroCategoria, filtroMes, filtroAnio, filtroDesde, filtroHasta, busqueda]);
 
   const categoriasVisibles = useMemo(
     () => [...new Set(data.transactions.map((t) => t.categoria))].sort(),
     [data.transactions],
   );
+
+  const anios = useMemo(() => {
+    const years = new Set(data.transactions.map((t) => t.fecha.slice(0, 4)).filter(Boolean));
+    return [...years].sort().reverse();
+  }, [data.transactions]);
+
+  const customCategoriesByType = useMemo(() => {
+    const out: Record<TxType, string[]> = { ingreso: [], costo: [], gasto: [] };
+    for (const t of data.transactions) {
+      if (t.categoria && !CATEGORIAS[t.tipo].includes(t.categoria) && !out[t.tipo].includes(t.categoria)) {
+        out[t.tipo].push(t.categoria);
+      }
+    }
+    return out;
+  }, [data.transactions]);
 
   function notify(msg: string) {
     setAviso(msg);
@@ -320,7 +373,7 @@ export default function TransaccionesPage() {
       )}
 
       {/* Filtros */}
-      <Card className="p-4">
+      <Card className="space-y-3 p-4">
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
           <div className="relative">
             <Search
@@ -357,6 +410,18 @@ export default function TransaccionesPage() {
               </option>
             ))}
           </Select>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Select value={filtroMes} onChange={(e) => setFiltroMes(e.target.value)} aria-label="Filtrar por mes">
+            <option value="">Todos los meses</option>
+            {MESES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </Select>
+          <Select value={filtroAnio} onChange={(e) => setFiltroAnio(e.target.value)} aria-label="Filtrar por año">
+            <option value="">Todos los años</option>
+            {anios.map((y) => <option key={y} value={y}>{y}</option>)}
+          </Select>
+          <Input type="date" value={filtroDesde} onChange={(e) => setFiltroDesde(e.target.value)} aria-label="Desde fecha" />
+          <Input type="date" value={filtroHasta} onChange={(e) => setFiltroHasta(e.target.value)} aria-label="Hasta fecha" />
         </div>
       </Card>
 
@@ -477,6 +542,7 @@ export default function TransaccionesPage() {
             }
             baseMoneda={moneda}
             submitLabel={modal === "nueva" ? "Guardar" : "Actualizar"}
+            customCategories={customCategoriesByType}
             onCancel={() => setModal(null)}
             onSubmit={(f) => {
               void (async () => {
