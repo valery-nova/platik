@@ -46,6 +46,7 @@ import {
   type VentureSpace,
   type VentureType,
 } from "./storage";
+import { usePreferences, type Lang } from "./preferences";
 
 interface Target {
   mode: PlatikMode;
@@ -178,6 +179,7 @@ function reducer(state: State, action: Action): State {
 
 interface Store {
   mode: PlatikMode;
+  lang: Lang;
   data: PlatikData;
   spaces: SpacesState;
   ventures: VentureSpace[];
@@ -329,6 +331,7 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [hydrated, setHydrated] = useReducer(() => true, false);
   const activeTargetRef = useRef<Target>({ mode: state.mode, spaceId: state.spaces.active });
+  const { lang } = usePreferences();
 
   useEffect(() => {
     activeTargetRef.current = { mode: state.mode, spaceId: state.spaces.active };
@@ -394,6 +397,7 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
     };
     return {
       mode: state.mode,
+      lang,
       data: state.data,
       spaces: state.spaces,
       ventures: state.spaces.ventures,
@@ -521,7 +525,7 @@ export function PlatikProvider({ children }: { children: React.ReactNode }) {
         dispatch({ type: "depositoUsdc/delete", id, target });
       },
     };
-  }, [state, hydrated]);
+  }, [state, hydrated, lang]);
 
   return <PlatikContext.Provider value={store}>{children}</PlatikContext.Provider>;
 }

@@ -122,7 +122,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { mode, hydrated } = usePlatik();
-  const { t, lang } = usePreferences();
+  const { t } = usePreferences();
 
   return (
     <div className="flex min-h-screen">
@@ -199,7 +199,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Contenido */}
       <main className="w-full px-4 pb-16 pt-20 sm:px-6 lg:ml-64 lg:px-10 lg:pt-10">
-        <div key={lang} className="mx-auto max-w-6xl">
+        <div className="mx-auto max-w-6xl">
           {hydrated && mode === "beta" && (
             <div className="mb-4 rounded-2xl border border-lavanda/30 bg-lavanda-50 px-4 py-3 text-sm text-petroleo dark:bg-lavanda/20 dark:text-white">
               {t.shell.beta} <DemoBadge inline />
