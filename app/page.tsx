@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { YearNote } from "@/components/year-note";
 import { ProbarPlatik } from "@/components/probar-platik";
+import { AppBetaLink } from "@/components/app-beta-link";
 import { SocialLinks } from "@/components/social-links";
 import { BrandLogo } from "@/components/brand-logo";
 import { PreferenceToggles } from "@/components/preference-toggles";
@@ -11,6 +12,7 @@ import {
   MessageCircle,
   PiggyBank,
   ShieldCheck,
+  Smartphone,
   Wallet,
 } from "lucide-react";
 
@@ -106,6 +108,13 @@ export default function LandingPage() {
                 Probar PLATIK
                 <ArrowRight size={18} />
               </ProbarPlatik>
+              <AppBetaLink
+                className="inline-flex items-center gap-2 rounded-2xl border border-petroleo/15 bg-white px-6 py-3.5 font-semibold text-petroleo transition hover:border-menta-600 hover:text-menta-700"
+                title="Descargar APK Android"
+              >
+                <Smartphone size={18} />
+                Probar la app (beta)
+              </AppBetaLink>
               <span className="text-sm text-tinta-suave">
                 Sin registro · datos de ejemplo
               </span>

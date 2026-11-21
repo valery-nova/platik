@@ -90,6 +90,8 @@ const EN: Record<string, string> = {
   "El copiloto con IA llega en la siguiente fase.": "The AI copilot arrives in the next phase.",
   "Finanzas claras, decisiones inteligentes.": "Clear finances, smart decisions.",
   "Redes sociales de PLATIK": "PLATIK social media",
+  "Probar la app (beta)": "Try the app (beta)",
+  "Descargar APK Android": "Download Android APK",
   // Probar PLATIK
   "Elige cómo quieres empezar. Cada modalidad tiene su propio espacio de datos.":
     "Choose how you want to start. Each mode has its own data space.",
