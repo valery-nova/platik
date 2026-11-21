@@ -154,7 +154,7 @@ export function SpacesCard() {
       </ul>
 
       {canCreateVenture ? (
-        <div className="mt-5 rounded-2xl border border-dashed border-menta-600/40 bg-menta-50/60 p-4">
+        <div className="mt-5 rounded-2xl border border-dashed border-menta-600/40 bg-menta-50/60 p-4 dark:border-menta-600/60 dark:bg-menta-100/10">
           <p className="text-sm font-semibold text-petroleo">Agregar emprendimiento</p>
           <p className="mt-1 text-xs text-tinta-suave">
             Máximo {MAX_VENTURES}. Hereda tu moneda y país; el resto de los datos empiezan en cero.
