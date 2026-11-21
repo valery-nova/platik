@@ -95,13 +95,3 @@ export function identifyUser(id: string): void {
     // ignore
   }
 }
-
-export function setAnalyticsCaptureEnabled(enabled: boolean): void {
-  if (!ready || typeof window === "undefined") return;
-  try {
-    if (enabled) posthog.opt_in_capturing();
-    else posthog.opt_out_capturing();
-  } catch {
-    // ignore
-  }
-}

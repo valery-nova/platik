@@ -9,7 +9,7 @@ export function AnalyticsTracker() {
   const last = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!pathname || pathname.startsWith("/admin") || last.current === pathname) return;
+    if (!pathname || last.current === pathname) return;
     last.current = pathname;
     track("page_view", { path: pathname });
     if (pathname === "/panel") track("dashboard_viewed", { path: pathname });
