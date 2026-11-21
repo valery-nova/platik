@@ -86,12 +86,3 @@ export function track(
     // ignore
   }
 }
-
-export function identifyUser(id: string): void {
-  if (!ready || typeof window === "undefined" || !id) return;
-  try {
-    posthog.identify(id);
-  } catch {
-    // ignore
-  }
-}
