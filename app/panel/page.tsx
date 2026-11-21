@@ -448,7 +448,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Ayuda de la mascota */}
-      <Card className="flex flex-col items-center gap-4 bg-gradient-to-r from-menta-50 to-lavanda-50 p-6 sm:flex-row">
+      <Card className="flex flex-col items-center gap-4 bg-gradient-to-r from-menta-50 to-lavanda-50 p-6 sm:flex-row dark:from-petroleo-800/70 dark:to-lavanda/25">
         <Image
           src="/brand/mascota/expresiones/expresion-analiza.png"
           alt=""
