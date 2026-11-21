@@ -118,6 +118,9 @@ export default function LandingPage() {
               <span className="text-sm text-tinta-suave">
                 Sin registro · datos de ejemplo
               </span>
+              <p className="w-full text-xs text-tinta-suave">
+                La app beta está disponible para Android de 64 bits.
+              </p>
             </div>
           </div>
           <div className="anim-fade-up relative flex justify-center [animation-delay:120ms]">

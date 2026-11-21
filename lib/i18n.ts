@@ -92,6 +92,7 @@ const EN: Record<string, string> = {
   "Redes sociales de PLATIK": "PLATIK social media",
   "Probar la app (beta)": "Try the app (beta)",
   "Descargar APK Android": "Download Android APK",
+  "La app beta está disponible para Android de 64 bits.": "The beta app is available for 64-bit Android.",
   // Probar PLATIK
   "Elige cómo quieres empezar. Cada modalidad tiene su propio espacio de datos.":
     "Choose how you want to start. Each mode has its own data space.",
