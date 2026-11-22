@@ -86,22 +86,3 @@ export function track(
     // ignore
   }
 }
-
-export function identifyUser(id: string): void {
-  if (!ready || typeof window === "undefined" || !id) return;
-  try {
-    posthog.identify(id);
-  } catch {
-    // ignore
-  }
-}
-
-export function setAnalyticsCaptureEnabled(enabled: boolean): void {
-  if (!ready || typeof window === "undefined") return;
-  try {
-    if (enabled) posthog.opt_in_capturing();
-    else posthog.opt_out_capturing();
-  } catch {
-    // ignore
-  }
-}
