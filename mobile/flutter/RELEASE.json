@@ -1,0 +1,18 @@
+{
+  "version": "1.0.1+5",
+  "package": "com.platik.mobile",
+  "file": "Platik-1.0.1-android-arm64.apk",
+  "size": 25008702,
+  "sha256": "F44BFE80E67FF68F5CB232828A1B8ED93E0AB9127D653967E3016B7567DFC2BB",
+  "abi": "arm64-v8a",
+  "minSdk": 24,
+  "targetSdk": 36,
+  "signature": "APK v2 - existing Android Debug certificate",
+  "certificateSha256": "500653fae1219bc659e48a834702be8d47d9c76d1ff13484e7317be476370687",
+  "buildCommand": "flutter build apk --release --target-platform android-arm64 --no-pub",
+  "tests": 47,
+  "analyze": "No issues found",
+  "physicalTest": "Not repeated for this release; device unavailable",
+  "branch": "android/platik-native-1.0.1",
+  "tag": "android-v1.0.1"
+}

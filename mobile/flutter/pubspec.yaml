@@ -1,0 +1,36 @@
+name: platik_flutter
+description: App Android de Platik.
+publish_to: none
+version: 1.0.1+5
+environment:
+  sdk: ^3.10.0
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  http: ^1.5.0
+  intl: ^0.20.3
+  reown_sign: 1.4.1
+  reown_core: 1.5.1
+  qr_flutter: ^4.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png
+    - assets/logo-dark.png
+    - assets/mascota.png
+    - assets/google_g.png
+    - assets/web_reference.json
+    - assets/stellar_engine.html
+    - assets/stellar_engine.js
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans.ttf

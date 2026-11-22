@@ -1,0 +1,5 @@
+# Keep the exact source and bundled-runtime bytes used to build the APK.
+* -text
+# Preserve upstream license text and generated SDK notices verbatim.
+assets/stellar_engine.js -whitespace
+assets/fonts/*-OFL.txt -whitespace

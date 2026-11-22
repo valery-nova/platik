@@ -1,0 +1,312 @@
+{
+  "version": "1.0.1+5",
+  "package": "com.platik.mobile",
+  "files": [
+    {
+      "path": ".gitignore",
+      "sha256": "2868bbdbb87c5691727b6c9637757337bb2e5345e48166f594aca4ce75907a65"
+    },
+    {
+      "path": "android/app/build.gradle.kts",
+      "sha256": "e389a893d9d45df06351b05b78a60986507ed505be12fce87d9d1f5d880c91a9"
+    },
+    {
+      "path": "android/app/src/main/AndroidManifest.xml",
+      "sha256": "c38595cb15a3990938124df5701353b4cbc8d386905584b8a366000de3dc6fce"
+    },
+    {
+      "path": "android/app/src/main/java/com/platik/mobile/MainActivity.java",
+      "sha256": "960854da8964e3b14419f2307e21c18b216f52fb19107d4cc586e77334176906"
+    },
+    {
+      "path": "android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java",
+      "sha256": "342a5c0a2451b2d47cfdcf63cf4168bf8bf88981c01f5240823d2eeeac3c4aee"
+    },
+    {
+      "path": "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "sha256": "55f23e666d3862ca618339dd95d3020f565abe01e7b98d7f23092224d01c8734"
+    },
+    {
+      "path": "android/build.gradle.kts",
+      "sha256": "218f400e3fff31c9c986a2535dfb974560e1b4d33cc27b7c1fee96a2b7e44454"
+    },
+    {
+      "path": "android/gradle.properties",
+      "sha256": "1de67a3fe7c437f5c2f978012eeb82ecd95a41beecf10c5328b3c4a240fe3d82"
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.jar",
+      "sha256": "16caeaf66d57a0d1d2087fef6a97efa62de8da69afa5b908f40db35afc4342da"
+    },
+    {
+      "path": "android/gradle/wrapper/gradle-wrapper.properties",
+      "sha256": "594a00250ef7a36609a01f3263bf5ed63963afaf9ca9f82f2cd1de0f6f056383"
+    },
+    {
+      "path": "android/gradlew",
+      "sha256": "ec56c02543666d92d9ac5ae7fcc48f88ce4de0deb8b7f9b39928ca46f68c1b2b"
+    },
+    {
+      "path": "android/gradlew.bat",
+      "sha256": "c13c6e91b9a517783976de213d46398c661ea9e17651376d7301e839eaedcc62"
+    },
+    {
+      "path": "android/settings.gradle.kts",
+      "sha256": "092ba880c8d4a07591aafc082f45deedc9afcf60c113a4bb3d13cbe1a1fce9de"
+    },
+    {
+      "path": "assets/fonts/Inter-OFL.txt",
+      "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57"
+    },
+    {
+      "path": "assets/fonts/Inter.ttf",
+      "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031"
+    },
+    {
+      "path": "assets/fonts/NotoSans-OFL.txt",
+      "sha256": "cee9892f9f0cc8fe882c9e9537ee6a89621d86ee7ceaf70b02e2b2b1c25c061a"
+    },
+    {
+      "path": "assets/fonts/NotoSans.ttf",
+      "sha256": "bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d"
+    },
+    {
+      "path": "assets/google_g.png",
+      "sha256": "d1ce9c2af0b10a7333abc99bc706f9a6a199e5b65bf3e3009624f076b8638e6a"
+    },
+    {
+      "path": "assets/logo-dark.png",
+      "sha256": "ceb71a1422862767740e334d2a5123ce4aa63ab7f071947dee9ec5f9d2605235"
+    },
+    {
+      "path": "assets/logo.png",
+      "sha256": "b3fd102b4c656222780d9d76f527e497034a79fc0a0df9cf93ca77e26e09420f"
+    },
+    {
+      "path": "assets/mascota.png",
+      "sha256": "27b13a6c349ac5d1bead22c92340c4e3269eabb2c073ca4852ad5ed40d0bc479"
+    },
+    {
+      "path": "assets/stellar_engine.html",
+      "sha256": "c452f17c4307432e5e3c0ff48e93074c0eff6e1646dc6f6d7479bd245db6135b"
+    },
+    {
+      "path": "assets/stellar_engine.js",
+      "sha256": "95b48c321d19eb34c21250a97accb666bfb050a14df8f694958c36a02c999b6e"
+    },
+    {
+      "path": "assets/web_reference.json",
+      "sha256": "9ad6875137bad0bbef66978b69a2984b94514ca76431bc866ec85fc7631ed2af"
+    },
+    {
+      "path": "lib/analytics.dart",
+      "sha256": "25f4b8e6b5ae306f82ebbb6bf6a5790550221c501dbd5bab7335c7c3b7c8d5bc"
+    },
+    {
+      "path": "lib/dashboard.dart",
+      "sha256": "383d9d29c7b0b8a4e8a55a6edeab824bafc62dcdfe5f339df7e6d2fb01e96744"
+    },
+    {
+      "path": "lib/domain.dart",
+      "sha256": "4e2b0b3e77cac9a514516bf2ec726eaa00263ee6391db1c81a902e34b78543d5"
+    },
+    {
+      "path": "lib/finance_views.dart",
+      "sha256": "86e61e21e9f258395c467e4dc4bb6833f498bd370d0f384240b8d1831ccd7a6c"
+    },
+    {
+      "path": "lib/flow.dart",
+      "sha256": "3a8d590511beb59d3266e29e1b37163f95660a1bea99f9d9cf7b0b45f2e7aaf1"
+    },
+    {
+      "path": "lib/i18n.dart",
+      "sha256": "1180fa3a5586e43ab01f23f1526de936f8435ce8ac709b18ee781a8405e812ec"
+    },
+    {
+      "path": "lib/main.dart",
+      "sha256": "b92e513d890d8ea7ba22a4b0231260bebaa69ea65dcb0d2aaaba1c7a247a7161"
+    },
+    {
+      "path": "lib/pollar.dart",
+      "sha256": "3d632e4148db6dd2ad2ee32865a31ca7e8a835e9460592bdfa18ea0d9126f4eb"
+    },
+    {
+      "path": "lib/profile_views.dart",
+      "sha256": "2bf44456b70ab764d73ebf4409506c77221f6a5af05c913d06c2ef9777196f4f"
+    },
+    {
+      "path": "lib/rates.dart",
+      "sha256": "a8eb3d0cf746757cc4701f82d7dc1bdbd6b582c5dc95d96f6776ebf7f9652790"
+    },
+    {
+      "path": "lib/screen_digital_wallet.dart",
+      "sha256": "f8cbd47173d6ab3a763085aef8c8cebdf99e2fe1a4af76cc8f785249f208845c"
+    },
+    {
+      "path": "lib/screen_profile.dart",
+      "sha256": "52ddddbed1aa61fe119a263b10a6299ad8ba46a5c953a40b556a9696693c2585"
+    },
+    {
+      "path": "lib/screen_spaces.dart",
+      "sha256": "8c506fd0daf142c476cc74f862e207cf8068c9d647c4e6768667f2ca16a8989b"
+    },
+    {
+      "path": "lib/screen_wallet.dart",
+      "sha256": "f7a2d576e5b9151ab7cc0d445b14f2774cb37063b4514f601b84a9443b07560f"
+    },
+    {
+      "path": "lib/screens_finance.dart",
+      "sha256": "b4b7017ccd92f121ef95dc496536e1519b18eae15dc1f2f60ef894c4b17d8d3d"
+    },
+    {
+      "path": "lib/setup.dart",
+      "sha256": "27a340925939ca308d1a9c7d7221175ba86727d986c27dc78a82e44f3437d166"
+    },
+    {
+      "path": "lib/store.dart",
+      "sha256": "791b233673e2c05c134ac7b04e11d023bdd6712d239fde0e69d6de7b8873db01"
+    },
+    {
+      "path": "lib/tempo_ui.dart",
+      "sha256": "5c7b6a59727c07798efd86cdb923f9627cccf0ebfbca1bc9cc33d566eedad56f"
+    },
+    {
+      "path": "lib/theme.dart",
+      "sha256": "2ffa8b9434034e085b61242497b8feef5ba456f26b4d3be3a2f8fff066efb5f4"
+    },
+    {
+      "path": "lib/wallet_approval.dart",
+      "sha256": "9827a517195657ddf2c0992fd8a23082e6284d69f91f11c4da6cda2e11f9dd0e"
+    },
+    {
+      "path": "lib/wallet_views.dart",
+      "sha256": "bf2a00bc5e7e08a0a541fd699b286bc1c6c57a1d7394e0b0a3e40a30e6582803"
+    },
+    {
+      "path": "lib/wallet.dart",
+      "sha256": "a3e47ef0161ad6089c670bcedf86285ff430fe78406b8b000f484dbddfdd1f9b"
+    },
+    {
+      "path": "lib/welcome.dart",
+      "sha256": "5c458c034785b574cb06627587127fb57a64888cf3b012bb7636f1b580ab8683"
+    },
+    {
+      "path": "lib/widgets.dart",
+      "sha256": "71eada17a2edc0a529e303bd2dc937dbf241c552ed2bab7c54551931f5ca19a6"
+    },
+    {
+      "path": "pubspec.lock",
+      "sha256": "1989de267564895c64cd72d1f8e7a63e868f6579cdea1bc87a035f0c8ddcc842"
+    },
+    {
+      "path": "pubspec.yaml",
+      "sha256": "14ff583bee312949bd85da6aa063e38dec688565f5d7d4059ba51f161c8dd8e9"
+    },
+    {
+      "path": "README.md",
+      "sha256": "75e8c5649a8547173d735660d7beac38fc35fdb533b852cee5ad5c5e0cad3ae9"
+    },
+    {
+      "path": "test/analytics_test.dart",
+      "sha256": "291083b9433e1ade5eca099be9e955f40e16ec6d0fc6afec26b059bab53bbb53"
+    },
+    {
+      "path": "test/app_flow_test.dart",
+      "sha256": "e0ce2d824cad93efb221698d000fc463936d1942974a4c46d1477ffd8f330b17"
+    },
+    {
+      "path": "test/domain_test.dart",
+      "sha256": "5d64497e7a83bd91c9cd84c27e3ed062e49cee193abc992b5b07383af5147456"
+    },
+    {
+      "path": "test/fixtures/finance.json",
+      "sha256": "4f541a5484dbe12bed9f7af002268dd3392a91864e2a0085403b439dae12afee"
+    },
+    {
+      "path": "test/spaces_wallet_test.dart",
+      "sha256": "897edeb96ff79395c37e90b6d89021041f15b8c9092c7712271ea6157767030f"
+    },
+    {
+      "path": "tool/stellar_engine/build.cjs",
+      "sha256": "a2688a9269768e47b3dad08885465f03770cfcef1a2b963531558d8b204ced82"
+    },
+    {
+      "path": "tool/stellar_engine/entry.ts",
+      "sha256": "cdf01cc31b2eb72425dd0bb064242d832a116a240dc3f98a7271eb048b6ee901"
+    },
+    {
+      "path": "tool/stellar_engine/package-lock.json",
+      "sha256": "1b229666d413814f6cf5b266487c384381cf4d6fd42692c71e9788fcf90c2062"
+    },
+    {
+      "path": "tool/stellar_engine/package.json",
+      "sha256": "eb26dd5039fff3ddb246a69a6472a897b7268625824bcbfa0bb9374d7607644b"
+    },
+    {
+      "path": "tool/stellar_engine/platik/account.ts",
+      "sha256": "223a95ec09b0ba5abed4ef5669a9d43153aff91f8cbd5f259ca108399d4060d0"
+    },
+    {
+      "path": "tool/stellar_engine/platik/aporte.ts",
+      "sha256": "fc15b91a7174b9d4481e48e7d358b201ea90463cb6a3670d598e745ba9455183"
+    },
+    {
+      "path": "tool/stellar_engine/platik/config.ts",
+      "sha256": "d26babad3f77d97f86840627f4cdc905ff54479a9dbd6184cfcfb9c02d220b6b"
+    },
+    {
+      "path": "tool/stellar_engine/platik/deposits.ts",
+      "sha256": "09a1e65e412854fa3360a6130ccf3e4d352296626c59e6c56446fc22563e65ff"
+    },
+    {
+      "path": "tool/stellar_engine/platik/errors.ts",
+      "sha256": "3857592fa0602a5a8b02765fb191ad70602174f955ff01fe407d170df59797bc"
+    },
+    {
+      "path": "tool/stellar_engine/platik/payment.ts",
+      "sha256": "38d09db74aaec299e5aad9427851a50b057f3232868cda3e99af46a819457c77"
+    },
+    {
+      "path": "tool/stellar_engine/platik/trustline.ts",
+      "sha256": "e41f174ff903fd00f7319d9ff95b170dd7e42bb37652d88e98e5f63a84e11391"
+    },
+    {
+      "path": "tool/stellar_engine/platik/types.ts",
+      "sha256": "e87fca4657fa006f5c5ab836b79bd7bf957175ff436013d1bdbadb5bfb5c723a"
+    },
+    {
+      "path": "tool/stellar_engine/platik/verify.ts",
+      "sha256": "fd184ad6dfdf9922ed32c950f45b4995d89dc73992ba6627f161de16e3ad5cc3"
+    },
+    {
+      "path": "tool/stellar_engine/platik/wallet.ts",
+      "sha256": "c26245a546c795b598a9f9f5783e059c12f23c98ef2bec22e1cc62fd67a2b000"
+    },
+    {
+      "path": "tool/stellar_engine/public-config.json",
+      "sha256": "f36b84a7209727da90c49066de1a0a9347c4ccfeb22cbd6cda0a2378c077b9d0"
+    },
+    {
+      "path": "tool/stellar_engine/README.md",
+      "sha256": "27208fce5b3659694ddf682f07088b997b1db987e7790e414ec59febaed79e44"
+    }
+  ],
+  "artifact": {
+    "version": "1.0.1+5",
+    "package": "com.platik.mobile",
+    "file": "Platik-1.0.1-android-arm64.apk",
+    "size": 25008702,
+    "sha256": "F44BFE80E67FF68F5CB232828A1B8ED93E0AB9127D653967E3016B7567DFC2BB",
+    "abi": "arm64-v8a",
+    "minSdk": 24,
+    "targetSdk": 36,
+    "signature": "APK v2 - existing Android Debug certificate",
+    "certificateSha256": "500653fae1219bc659e48a834702be8d47d9c76d1ff13484e7317be476370687",
+    "buildCommand": "flutter build apk --release --target-platform android-arm64 --no-pub",
+    "tests": 47,
+    "analyze": "No issues found",
+    "physicalTest": "Not repeated for this release; device unavailable",
+    "branch": "android/platik-native-1.0.1",
+    "tag": "android-v1.0.1"
+  }
+}
