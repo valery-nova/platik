@@ -43,7 +43,7 @@ Rutas:
 - **Metas**: ahorro por objetivos en la moneda del espacio. Los aportes en moneda local son registros manuales; los depósitos USDC verificados on-chain pueden asignarse a una meta.
 - **Billetera digital**: dos opciones en Stellar Testnet — conectar una wallet externa (Freighter/Varial) o crear una wallet integrada con Pollar (correo/Google). Permite recibir USDC con QR/dirección, activar trustline, enviar USDC y sincronizar depósitos verificados en Horizon. PLATIK nunca pide ni guarda claves privadas.
 - **Perfil**: nombre, país, moneda principal/de visualización, distribución del dinero disponible por porcentajes o montos, cambio de idioma/tema y cambio entre modo demo y beta.
-- **Landing**: propuesta de valor para cualquier persona, selector Español/English, modo claro/oscuro y enlaces a redes sociales.
+- **Landing**: propuesta de valor para cualquier persona, selector Español/English, modo claro/oscuro, enlaces a redes sociales y descarga de la app Android beta (APK).
 
 ## Variables de entorno
 

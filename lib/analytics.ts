@@ -21,6 +21,7 @@ export type AnalyticsEvent =
   | "wallet_connected"
   | "usdc_deposit_started"
   | "usdc_deposit_completed"
+  | "app_beta_click"
   | "social_link_click"
   | "feature_error";
 
